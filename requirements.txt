@@ -1,0 +1,27 @@
+# 공통
+python-dotenv
+pandas
+
+# LangChain / RAG
+langchain
+langchain-core
+langchain-community
+langchain-google-genai
+langchain-huggingface
+langchain-openai
+langchain-chroma
+langchain-upstage
+langchain-text-splitters
+
+# 문서 / 벡터스토어
+pypdf
+chromadb
+faiss-cpu
+
+# 임베딩 (HuggingFace 한국어 모델 비교용)
+sentence-transformers
+
+# 평가
+bert-score
+ragas
+datasets
