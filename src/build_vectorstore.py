@@ -22,17 +22,20 @@ load_dotenv()
 
 
 def get_embeddings(provider=config.EMBEDDING_PROVIDER):
+    """임베딩 모델을 생성한다. (실험 파라미터: 임베딩 모델)"""
 
-    """임베딩 모델을 생성한다. (실험 파라미터 1: 임베딩 모델)"""
     if provider == "gemini":
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
         return GoogleGenerativeAIEmbeddings(model=config.GEMINI_EMBEDDING_MODEL)
+    
     if provider == "openai":
         from langchain_openai import OpenAIEmbeddings
         return OpenAIEmbeddings(model=config.OPENAI_EMBEDDING_MODEL)
+    
     if provider == "huggingface":
         from langchain_huggingface import HuggingFaceEmbeddings
         return HuggingFaceEmbeddings(model_name=config.HF_EMBEDDING_MODEL)
+    
     raise ValueError(f"지원하지 않는 임베딩: {provider}")
 
 
@@ -40,8 +43,8 @@ def build_vectorstore(vectorstore=config.VECTORSTORE,
                       embedding=config.EMBEDDING_PROVIDER,
                       chunk_size=config.CHUNK_SIZE,
                       overlap=config.CHUNK_OVERLAP):
-    
     """벡터스토어를 구축하고 저장한다. (실험 파라미터 2: 벡터스토어 종류)"""
+
     path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap)
     embeddings = get_embeddings(embedding)
 
@@ -69,26 +72,29 @@ def load_vectorstore(vectorstore=config.VECTORSTORE,
                      embedding=config.EMBEDDING_PROVIDER,
                      chunk_size=config.CHUNK_SIZE,
                      overlap=config.CHUNK_OVERLAP):
-    
     """저장된 벡터스토어를 로드한다. 없으면 새로 구축한다."""
+
     path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap)
     if not path.exists():
         return build_vectorstore(vectorstore, embedding, chunk_size, overlap)
 
     embeddings = get_embeddings(embedding)
+
     if vectorstore == "chroma":
         from langchain_chroma import Chroma
         return Chroma(persist_directory=str(path), embedding_function=embeddings)
+    
     if vectorstore == "faiss":
         from langchain_community.vectorstores import FAISS
         return FAISS.load_local(str(path), embeddings, allow_dangerous_deserialization=True)
+    
     raise ValueError(f"지원하지 않는 벡터스토어: {vectorstore}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="벡터스토어 구축")
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)
-    parser.add_argument("--embedding", choices=["gemini", "huggingface", "openai"], default=config.EMBEDDING_PROVIDER)
+    parser.add_argument("--embedding", choices=["huggingface", "openai", "gemini"], default=config.EMBEDDING_PROVIDER)
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
     args = parser.parse_args()

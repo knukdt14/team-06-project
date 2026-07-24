@@ -8,7 +8,6 @@
 실행 예:
     python src/load_pdf.py                      # 기본값 (chunk_size=1000, overlap=200)
     python src/load_pdf.py --chunk-size 500 --overlap 100
-
 """
 import argparse
 
@@ -44,6 +43,7 @@ def split_documents(documents, chunk_size=config.CHUNK_SIZE, overlap=config.CHUN
 
 def get_chunks(chunk_size=config.CHUNK_SIZE, overlap=config.CHUNK_OVERLAP):
     """로드 + 분할을 한 번에 수행 (build_vectorstore에서 사용)."""
+    
     return split_documents(load_documents(), chunk_size, overlap)
 
 

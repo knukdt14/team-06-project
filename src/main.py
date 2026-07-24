@@ -13,7 +13,8 @@ from rag_chain import PROMPTS, build_chain
 
 def main():
     parser = argparse.ArgumentParser(description="연말정산 Q&A 챗봇")
-    parser.add_argument("--llm", choices=["gemini", "upstage", "openai"], default=config.LLM_PROVIDER)
+    from rag_chain import LLM_CHOICES
+    parser.add_argument("--llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER)
     parser.add_argument("--prompt", choices=list(PROMPTS), default="basic")
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--show-context", action="store_true", help="검색된 문맥도 출력")

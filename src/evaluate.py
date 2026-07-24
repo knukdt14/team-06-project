@@ -82,12 +82,13 @@ def compute_ragas(questions, answers, contexts, references):
 def main():
     parser = argparse.ArgumentParser(description="RAG 평가")
     parser.add_argument("--run-name", required=True, help="실험 이름 (results.csv에 기록)")
-    parser.add_argument("--llm", choices=["gemini", "upstage", "openai"], default=config.LLM_PROVIDER)
+    from rag_chain import EMBEDDING_CHOICES, LLM_CHOICES, SEARCH_CHOICES
+    parser.add_argument("--llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER)
     parser.add_argument("--prompt", default="basic")
-    parser.add_argument("--search-type", choices=["similarity", "mmr"], default=config.SEARCH_TYPE)
+    parser.add_argument("--search-type", choices=SEARCH_CHOICES, default=config.SEARCH_TYPE)
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)
-    parser.add_argument("--embedding", choices=["gemini", "huggingface", "openai"], default=config.EMBEDDING_PROVIDER)
+    parser.add_argument("--embedding", choices=EMBEDDING_CHOICES, default=config.EMBEDDING_PROVIDER)
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
     parser.add_argument("--with-ragas", action="store_true")
