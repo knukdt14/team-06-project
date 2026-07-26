@@ -1,15 +1,37 @@
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
-from scoring import (is_refusal, numeric_score, condition_score,
+from scoring import (is_refusal, is_full_refusal, numeric_score, condition_score,
                      cited_pages, citation_score, tag_errors)
 
 
-# ── 거절 판정 ──
+# ── 거절 판정 (관대 기준: 문구만 검사) ──
 def test_refusal_detected():
     assert is_refusal("문서에서 찾을 수 없습니다.") is True
 
 def test_refusal_normal_answer():
     assert is_refusal("월세액의 17%를 공제받습니다.") is False
+
+
+# ── 전체 거절 판정 (엄격 기준: 문구 + 짧은 길이 → WR용) ──
+def test_full_refusal_short_template():
+    assert is_full_refusal("제공된 연말정산 안내 문서에서 확인할 수 없습니다.") is True
+
+def test_full_refusal_false_for_long_partial_answer():
+    # 실측 사례(gpt-5.4-nano Q6, 606자): 계산식·공제율을 상세히 답하면서
+    # 한 문장만 "찾을 수 없다"고 헤지 — 전체 거절이 아니라 부분 답변이어야 한다
+    long_partial = (
+        "신용카드 등 소득공제 금액은 다음 산식에 따라 계산합니다. "
+        "신용카드 등 소득공제 금액 = (① + ② + ③ + ④ + ⑤ - ⑥ + ⑦)에 해당하는 금액입니다. "
+        "① 신용카드사용분: 신용카드 등 사용금액 합계액에서 대중교통이용분과 전통시장사용분을 제외한 금액입니다. "
+        "다만 세부 항목 중 일부 세율은 본 문맥에서 확인할 수 없습니다. "
+        "나머지 항목은 문맥에 제시된 산식을 그대로 적용하면 됩니다."
+    )
+    assert len(long_partial) > 120
+    assert is_refusal(long_partial) is True       # 문구는 있음
+    assert is_full_refusal(long_partial) is False  # 하지만 전체 거절은 아님
+
+def test_full_refusal_false_for_normal_answer():
+    assert is_full_refusal("월세액의 17%를 공제받습니다.") is False
 
 
 # ── 핵심 숫자 (BERTScore가 못 잡는 오답을 잡아야 함) ──
@@ -78,21 +100,29 @@ def test_citation_none():
 
 # ── 오류 코드 태깅 ──
 def test_tag_retrieval_fail():
-    codes = tag_errors(answerable=True, retrieval_hit=False, refusal=True,
+    codes = tag_errors(answerable=True, retrieval_hit=False, full_refusal=True, refusal=True,
                        num_score=None, cond_score=None, cite_score=None)
     assert "E3" in codes and "WR" in codes
 
 def test_tag_numeric_error():
-    codes = tag_errors(answerable=True, retrieval_hit=True, refusal=False,
+    codes = tag_errors(answerable=True, retrieval_hit=True, full_refusal=False, refusal=False,
                        num_score=0.5, cond_score=1.0, cite_score=1.0)
     assert codes == ["E6"]
 
 def test_tag_no_refusal_on_unanswerable():
-    codes = tag_errors(answerable=False, retrieval_hit=None, refusal=False,
+    codes = tag_errors(answerable=False, retrieval_hit=None, full_refusal=False, refusal=False,
                        num_score=None, cond_score=None, cite_score=None)
     assert codes == ["E10"]
 
 def test_tag_clean():
-    codes = tag_errors(answerable=True, retrieval_hit=True, refusal=False,
+    codes = tag_errors(answerable=True, retrieval_hit=True, full_refusal=False, refusal=False,
                        num_score=1.0, cond_score=1.0, cite_score=1.0)
     assert codes == []
+
+def test_tag_partial_hedge_not_wr_but_numeric_error():
+    # 핵심 발견 재현: 문구는 있지만(refusal=True) 장문 부분 답변(full_refusal=False)
+    # → WR이 아니라 실제로 빠진 숫자만 E6로 잡혀야 한다
+    codes = tag_errors(answerable=True, retrieval_hit=True, full_refusal=False, refusal=True,
+                       num_score=0.5, cond_score=1.0, cite_score=1.0)
+    assert codes == ["E6"]
+    assert "WR" not in codes
