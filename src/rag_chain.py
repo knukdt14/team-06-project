@@ -140,9 +140,15 @@ def build_chain(vectorstore=config.VECTORSTORE,
                 search_type=config.SEARCH_TYPE,
                 top_k=config.TOP_K,
                 chunk_size=config.CHUNK_SIZE,
-                overlap=config.CHUNK_OVERLAP):
-    """RAG 체인과 retriever를 생성해 (chain, retriever)로 반환한다."""
-    vs = load_vectorstore(vectorstore, embedding, chunk_size, overlap)
+                overlap=config.CHUNK_OVERLAP,
+                embedding_model=None):
+    """RAG 체인과 retriever를 생성해 (chain, retriever)로 반환한다.
+
+    embedding_model: 모델 ID 직접 지정 (예: intfloat/multilingual-e5-small).
+                     None이면 config의 provider 기본 모델 사용.
+    """
+    vs = load_vectorstore(vectorstore, embedding, chunk_size, overlap,
+                          embedding_model=embedding_model)
     retriever = get_retriever(vs, search_type, top_k, chunk_size, overlap)
     llm = get_llm(llm_provider)
     prompt = PROMPTS[prompt_name]

@@ -64,6 +64,27 @@ def test_reciprocal_rank_miss():
     assert reciprocal_rank([6, 5], 220) == 0.0
 
 
+# ── 복수 정답 페이지 (요약;상세) ──
+from eval_retrieval import parse_gold_pages
+
+def test_parse_gold_pages_multi():
+    assert parse_gold_pages("6;182") == [6, 182]
+
+def test_parse_gold_pages_single_int():
+    assert parse_gold_pages(220) == [220]
+
+def test_page_hit_multi_gold_detail_page():
+    # 요약(6)은 못 찾았지만 상세(182)를 찾음 → hit
+    assert page_hit([182, 20, 203], [6, 182]) is True
+
+def test_page_hit_multi_gold_miss():
+    assert page_hit([10, 164, 162], [8, 188]) is False
+
+def test_reciprocal_rank_multi_gold_best():
+    # 상세(182)가 1위 → 1.0
+    assert reciprocal_rank([182, 6, 5], [6, 182]) == 1.0
+
+
 def test_retrieval_error_code():
     assert retrieval_error_code(True) == ""
     assert retrieval_error_code(False) == "E3"
