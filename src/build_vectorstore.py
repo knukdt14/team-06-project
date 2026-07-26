@@ -7,7 +7,8 @@ artifacts/ 아래에 따로 저장되어 실험 간 재사용이 가능하다.
 
 실행 예:
     python src/build_vectorstore.py                                # Chroma + OpenAI 임베딩
-    python src/build_vectorstore.py --vectorstore faiss
+    python src/build_vectorstore.py --vectorstore faiss             # FAISS Flat
+    python src/build_vectorstore.py --vectorstore faiss --faiss-index hnsw
     python src/build_vectorstore.py --embedding huggingface        # 한국어 특화 모델 비교
     python src/build_vectorstore.py --chunk-size 500 --overlap 100
 """
@@ -19,6 +20,71 @@ import config
 from load_pdf import get_chunks
 
 load_dotenv()
+
+FAISS_INDEX_CHOICES = ("flat", "hnsw")
+FAISS_HNSW_M = 32
+
+
+def get_vectorstore_path(vectorstore, embedding, chunk_size, overlap,
+                         embedding_model=None, faiss_index="flat"):
+    """FAISS 인덱스 타입이 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다."""
+
+    path = config.vectorstore_path(
+        vectorstore, embedding, chunk_size, overlap, embedding_model or ""
+    )
+    if vectorstore == "faiss" and faiss_index != "flat":
+        path = path.with_name(f"{path.name}_{faiss_index}")
+    return path
+
+
+def create_faiss_from_embeddings(text_embeddings, embeddings, metadatas,
+                                 ids=None, faiss_index="flat"):
+    """동일한 사전 계산 임베딩으로 FAISS Flat 또는 HNSW 스토어를 만든다."""
+
+    from langchain_community.vectorstores import FAISS
+
+    pairs = list(text_embeddings)
+    if faiss_index == "flat":
+        return FAISS.from_embeddings(
+            pairs, embeddings, metadatas=metadatas, ids=ids
+        )
+
+    if faiss_index == "hnsw":
+        import faiss
+        from langchain_community.docstore.in_memory import InMemoryDocstore
+
+        if not pairs:
+            raise ValueError("FAISS HNSW 인덱스에 추가할 임베딩이 없습니다.")
+
+        dimension = len(pairs[0][1])
+        index = faiss.IndexHNSWFlat(dimension, FAISS_HNSW_M, faiss.METRIC_L2)
+        vectorstore = FAISS(
+            embedding_function=embeddings,
+            index=index,
+            docstore=InMemoryDocstore(),
+            index_to_docstore_id={},
+        )
+        vectorstore.add_embeddings(pairs, metadatas=metadatas, ids=ids)
+        return vectorstore
+
+    raise ValueError(
+        f"지원하지 않는 FAISS 인덱스: {faiss_index} "
+        f"(선택: {', '.join(FAISS_INDEX_CHOICES)})"
+    )
+
+
+def create_faiss_from_documents(chunks, embeddings, faiss_index="flat"):
+    """Document를 임베딩해 선택한 FAISS 인덱스로 만든다."""
+
+    texts = [chunk.page_content for chunk in chunks]
+    metadatas = [chunk.metadata for chunk in chunks]
+    vectors = embeddings.embed_documents(texts)
+    return create_faiss_from_embeddings(
+        zip(texts, vectors),
+        embeddings,
+        metadatas,
+        faiss_index=faiss_index,
+    )
 
 
 
@@ -44,15 +110,20 @@ def build_vectorstore(vectorstore=config.VECTORSTORE,
                       embedding=config.EMBEDDING_PROVIDER,
                       chunk_size=config.CHUNK_SIZE,
                       overlap=config.CHUNK_OVERLAP,
-                      embedding_model=None):
+                      embedding_model=None,
+                      faiss_index="flat"):
     """벡터스토어를 구축하고 저장한다. (실험 파라미터 2: 벡터스토어 종류)"""
 
-    path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap, embedding_model or "")
+    path = get_vectorstore_path(
+        vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+    )
     embeddings = get_embeddings(embedding, embedding_model)
 
     if path.exists():
         print(f"[build_vectorstore] 이미 존재: {path.name} (재사용하려면 load_vectorstore 사용)")
-        return load_vectorstore(vectorstore, embedding, chunk_size, overlap, embedding_model)
+        return load_vectorstore(
+            vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+        )
 
     chunks = get_chunks(chunk_size, overlap)
 
@@ -60,8 +131,7 @@ def build_vectorstore(vectorstore=config.VECTORSTORE,
         from langchain_chroma import Chroma
         vs = Chroma.from_documents(chunks, embeddings, persist_directory=str(path))
     elif vectorstore == "faiss":
-        from langchain_community.vectorstores import FAISS
-        vs = FAISS.from_documents(chunks, embeddings)
+        vs = create_faiss_from_documents(chunks, embeddings, faiss_index)
         vs.save_local(str(path))
     else:
         raise ValueError(f"지원하지 않는 벡터스토어: {vectorstore}")
@@ -74,12 +144,17 @@ def load_vectorstore(vectorstore=config.VECTORSTORE,
                      embedding=config.EMBEDDING_PROVIDER,
                      chunk_size=config.CHUNK_SIZE,
                      overlap=config.CHUNK_OVERLAP,
-                     embedding_model=None):
+                     embedding_model=None,
+                     faiss_index="flat"):
     """저장된 벡터스토어를 로드한다. 없으면 새로 구축한다."""
 
-    path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap, embedding_model or "")
+    path = get_vectorstore_path(
+        vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+    )
     if not path.exists():
-        return build_vectorstore(vectorstore, embedding, chunk_size, overlap, embedding_model)
+        return build_vectorstore(
+            vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+        )
 
     embeddings = get_embeddings(embedding, embedding_model)
 
@@ -97,12 +172,19 @@ def load_vectorstore(vectorstore=config.VECTORSTORE,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="벡터스토어 구축")
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)
+    parser.add_argument("--faiss-index", choices=FAISS_INDEX_CHOICES, default="flat")
     parser.add_argument("--embedding", choices=["huggingface", "openai", "gemini"], default=config.EMBEDDING_PROVIDER)
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
     args = parser.parse_args()
 
-    vs = build_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap)
+    vs = build_vectorstore(
+        args.vectorstore,
+        args.embedding,
+        args.chunk_size,
+        args.overlap,
+        faiss_index=args.faiss_index,
+    )
 
     # 검색 동작 확인
     query = "월세 세액공제 조건은?"
