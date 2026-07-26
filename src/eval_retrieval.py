@@ -17,15 +17,36 @@ def retrieved_physical_pages(docs):
     return pages
 
 
-def page_hit(retrieved_pages, gold_page):
-    """정답 페이지가 검색된 페이지 목록에 있으면 True."""
-    return gold_page in retrieved_pages
+def parse_gold_pages(page_field):
+    """references.csv의 page 필드를 정답 페이지 목록으로 파싱한다.
+
+    복수 정답 지원: "6;182" → [6, 182]  (요약 페이지 + 상세 페이지 모두 정답 인정)
+    단일 정수(220, "220")도 그대로 동작한다.
+    """
+    if isinstance(page_field, (int, float)):
+        return [int(page_field)]
+    return [int(float(p)) for p in str(page_field).split(";") if str(p).strip()]
 
 
-def reciprocal_rank(retrieved_pages, gold_page):
-    """정답 페이지가 처음 등장한 순위의 역수(1/rank). 없으면 0.0."""
+def _as_golds(gold):
+    """int 하나 또는 페이지 목록을 모두 허용한다 (하위 호환)."""
+    return [gold] if isinstance(gold, int) else list(gold)
+
+
+def page_hit(retrieved_pages, gold):
+    """정답 페이지 중 하나라도 검색된 페이지 목록에 있으면 True."""
+    golds = _as_golds(gold)
+    return any(g in retrieved_pages for g in golds)
+
+
+def reciprocal_rank(retrieved_pages, gold):
+    """정답 페이지가 처음 등장한 순위의 역수(1/rank). 없으면 0.0.
+
+    복수 정답이면 가장 먼저 등장한 정답 기준(최고 순위).
+    """
+    golds = set(_as_golds(gold))
     for i, p in enumerate(retrieved_pages, start=1):
-        if p == gold_page:
+        if p in golds:
             return 1.0 / i
     return 0.0
 
@@ -109,14 +130,15 @@ def main():
     vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap,
                           embedding_model=args.embedding_model)
     retriever = get_retriever(vs, args.search_type, args.top_k, args.chunk_size, args.overlap)
-    embedding_model = get_embedding_model_name(args.embedding, config)
+    # --embedding-model로 직접 지정한 경우 그 모델 ID를 기록 (§21: 정확한 모델명 기록)
+    embedding_model = args.embedding_model or get_embedding_model_name(args.embedding, config)
     chunk_count = get_chunk_count(vs)
 
     rows = []
     for _, row in df.iterrows():
         docs = retriever.invoke(row["question"])
         pages = retrieved_physical_pages(docs)
-        gold = int(row["page"])
+        gold = parse_gold_pages(row["page"])
         hit = page_hit(pages, gold)
         duplicate_sentence_count = count_duplicate_sentences(docs)
         rows.append({

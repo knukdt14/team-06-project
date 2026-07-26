@@ -172,9 +172,13 @@ def score_dataframe(df, context_pages_by_id=None):
         qid = r["id"]
         raw_pages = ctx.get(qid)
         if raw_pages is not None:
-            gold = int(r["page"]) if answerable and pd.notna(r.get("page")) else None
+            if answerable and pd.notna(r.get("page")):
+                # 복수 정답 지원: "6;182" → 요약·상세 페이지 중 하나만 찾아도 hit
+                golds = [int(float(p)) for p in str(r["page"]).split(";") if str(p).strip()]
+            else:
+                golds = None
             physical = [p + 1 for p in raw_pages if p is not None and p >= 0]
-            hit = (gold in physical) if gold is not None else None
+            hit = any(g in physical for g in golds) if golds else None
             cite, bad_cites = citation_score(r["answer"], raw_pages)
         else:
             hit, cite, bad_cites, physical = None, None, [], None

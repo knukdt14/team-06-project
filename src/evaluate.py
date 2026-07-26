@@ -28,6 +28,7 @@ from datetime import datetime
 import pandas as pd
 
 import config
+from eval_retrieval import get_embedding_model_name
 from rag_chain import build_chain, format_docs
 
 RESULTS_PATH = config.EVAL_DIR / "results.csv"
@@ -100,6 +101,8 @@ def main():
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)
     parser.add_argument("--embedding", choices=EMBEDDING_CHOICES, default=config.EMBEDDING_PROVIDER)
+    parser.add_argument("--embedding-model", default=None,
+                        help="모델 ID 직접 지정 (예: intfloat/multilingual-e5-small) — 이희영 임베딩 비교용")
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
     parser.add_argument("--with-ragas", action="store_true")
@@ -111,6 +114,7 @@ def main():
         llm_provider=args.llm, prompt_name=args.prompt,
         search_type=args.search_type, top_k=args.top_k,
         chunk_size=args.chunk_size, overlap=args.overlap,
+        embedding_model=args.embedding_model,
     )
 
     answers, contexts, latencies, context_pages_by_id = run_chain(df, chain, retriever)
@@ -140,7 +144,9 @@ def main():
         "run_name": args.run_name,
         "datetime": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "llm": args.llm, "prompt": args.prompt,
-        "embedding": args.embedding, "vectorstore": args.vectorstore,
+        # §21: provider명이 아니라 정확한 모델 ID로 기록
+        "embedding": args.embedding_model or get_embedding_model_name(args.embedding, config),
+        "vectorstore": args.vectorstore,
         "chunk_size": args.chunk_size, "overlap": args.overlap,
         "search_type": args.search_type, "top_k": args.top_k,
         "bertscore_f1": round(sum(F1) / len(F1), 4),
