@@ -1,3 +1,5 @@
-﻿run_name,datetime,llm,prompt,embedding,vectorstore,chunk_size,overlap,search_type,top_k,bertscore_f1,avg_latency_sec
-baseline,2026-07-26 21:04,gemini,basic,huggingface,chroma,1000,200,similarity,3,0.6961,6.56
-cs500,2026-07-26 21:26,gemini,basic,huggingface,chroma,500,100,similarity,3,0.7423,7.21
+﻿run_name,datetime,llm,prompt,embedding,vectorstore,chunk_size,overlap,search_type,top_k,bertscore_f1,avg_latency_sec,numeric_acc,numeric_perfect,condition_recall,citation_acc,hit_rate,wrong_refusals,abstention_acc,error_counts
+baseline,2026-07-26 21:04,gemini,basic,huggingface,chroma,1000,200,similarity,3,0.6961,6.56,,,,,,,,
+cs500,2026-07-26 21:26,gemini,basic,huggingface,chroma,500,100,similarity,3,0.7423,7.21,,,,,,,,
+cs500_r2,2026-07-27 00:07,gemini,basic,huggingface,chroma,500,100,similarity,3,0.7382,6.86,0.8462,0.7692,0.7564,1.0,0.3846,2.0,,E3:8|E6:1|E7:2|WR:2
+cs500_r3,2026-07-27 00:10,gemini,basic,huggingface,chroma,500,100,similarity,3,0.7432,6.19,0.8205,0.6923,0.7564,1.0,0.3846,2.0,,E3:8|E6:2|E7:2|WR:2
