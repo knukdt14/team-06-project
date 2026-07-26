@@ -1,0 +1,4 @@
+﻿variant,engine,index,chunk_count,hit_at_3,mrr,build_time_sec,load_time_median_ms,search_time_mean_ms,search_time_median_ms,disk_bytes,disk_mib,load_repeats,search_queries,pdf_chunk_prepare_sec,document_embedding_sec
+chroma,Chroma,HNSW (Chroma default),1106,0.923,0.808,1.506689,5.529,1.2,0.988,18669732,17.805,5,390,7.610244,46.058117
+faiss_flat,FAISS,FLAT,1106,0.923,0.808,0.053287,7.497,0.129,0.112,4545447,4.335,5,390,7.610244,46.058117
+faiss_hnsw,FAISS,HNSW,1106,0.923,0.808,0.04711,8.785,0.064,0.059,4846004,4.622,5,390,7.610244,46.058117
