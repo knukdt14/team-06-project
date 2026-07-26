@@ -23,8 +23,32 @@ REFUSAL_PATTERNS = ("찾을 수 없", "확인할 수 없", "나와 있지 않",
 
 
 def is_refusal(answer) -> bool:
-    """답변이 '문서에서 찾을 수 없습니다'류의 거절인지."""
+    """답변에 거절 문구가 포함돼 있는지 (관대한 기준).
+
+    문서 밖 질문(answerable=0)의 거절 판정에 쓴다 — 부분 답변에 섞여 나와도
+    "이 부분은 문서에 없다"는 표현 자체는 정답이므로 길이를 따지지 않는다.
+    """
     return any(p in str(answer) for p in REFUSAL_PATTERNS)
+
+
+# 실측(baseline/cs500/header_v1/llm_openai/upstage 등, 총 10건 관찰) 기준:
+# 순수 거절 템플릿 답변은 20~90자, 실제로는 부분 답변 안에 거절 문구가
+# 섞인 경우가 모두 200자 이상이었다 (388~846자). 즉 이 태스크의 프롬프트에서는
+# "짧고 순수한 거절"과 "장문의 부분 답변 속 헤지 문구"가 뚜렷이 분리된다.
+FULL_REFUSAL_MAX_LEN = 120
+
+
+def is_full_refusal(answer) -> bool:
+    """답변이 사실상 거절뿐인지 (엄격한 기준 — WR 판정용).
+
+    거절 문구가 있어도 답변이 충분히 길면(핵심 숫자·조건을 실제로 담고 있으면)
+    "잘못된 거절"이 아니라 "부분 답변 중 일부를 정직하게 모르겠다고 한 것"으로 본다.
+    이 구분이 없으면 장문 답변 안에 헤지 한 마디만 섞여도 답변 전체가 거절로
+    오분류되어 numeric_acc/condition_recall이 이미 반영한 부분 점수와 모순되는
+    WR·E10 태그가 붙는다 (실제로 gpt-5.4-nano/mini 평가에서 4건씩 발생해 확인됨).
+    """
+    text = str(answer)
+    return is_refusal(text) and len(text) <= FULL_REFUSAL_MAX_LEN
 
 
 # ── 핵심 숫자 / 조건 포함 채점 ───────────────────────
@@ -123,19 +147,23 @@ def citation_score(answer, context_pages):
 
 
 # ── 오류 코드 태깅 (가이드라인 §22) ──────────────────
-def tag_errors(*, answerable, retrieval_hit, refusal, num_score, cond_score, cite_score):
+def tag_errors(*, answerable, retrieval_hit, full_refusal, refusal, num_score, cond_score, cite_score):
     """자동 판정 가능한 오류 코드만 태깅.
 
     E3  정답 문서 검색 실패          E6  핵심 숫자 누락/오류
     E7  필수 조건 누락               E9  문맥에 없는 페이지 인용
-    E10 문서 밖 질문 거절 실패       WR  답 있는 질문을 잘못 거절 (커스텀)
+    E10 문서 밖 질문 거절 실패       WR  답 있는 질문을 잘못 거절 (커스텀, 엄격 기준)
     ※ E1(추출)·E2(청크 경계)·E4(순위)·E5(잡음)·E8(환각)·E11(형식)은 수동 검토.
+
+    full_refusal: WR 판정용 (엄격, is_full_refusal). 장문 부분 답변 속 헤지는
+                 WR로 치지 않고 그 안에 실제로 빠진 숫자·조건만 E6/E7로 잡는다.
+    refusal: E10(문서 밖 질문 거절 실패) 판정용 (관대, is_refusal).
     """
     codes = []
     if answerable:
         if retrieval_hit is False:
             codes.append("E3")
-        if refusal:
+        if full_refusal:
             codes.append("WR")
         else:
             if num_score is not None and num_score < 1:
@@ -165,7 +193,8 @@ def score_dataframe(df, context_pages_by_id=None):
     rows = []
     for _, r in df.iterrows():
         answerable = bool(int(r.get("answerable", 1) or 0)) if "answerable" in df.columns else True
-        refusal = is_refusal(r["answer"])
+        refusal = is_refusal(r["answer"])            # 관대 기준 (E10/거절 표시용)
+        full_refusal = is_full_refusal(r["answer"])   # 엄격 기준 (WR 판정용)
         n_score, n_miss = numeric_score(r["answer"], r.get("key_numbers"))
         c_score, c_miss = condition_score(r["answer"], r.get("key_conditions"))
 
@@ -183,11 +212,12 @@ def score_dataframe(df, context_pages_by_id=None):
         else:
             hit, cite, bad_cites, physical = None, None, [], None
 
-        codes = tag_errors(answerable=answerable, retrieval_hit=hit, refusal=refusal,
+        codes = tag_errors(answerable=answerable, retrieval_hit=hit,
+                           full_refusal=full_refusal, refusal=refusal,
                            num_score=n_score, cond_score=c_score, cite_score=cite)
         rows.append({
             "id": qid, "retrieved_pages": physical, "retrieval_hit": hit,
-            "refusal": refusal,
+            "refusal": refusal, "full_refusal": full_refusal,
             "numeric_score": n_score, "missing_numbers": ";".join(n_miss),
             "condition_score": c_score, "missing_conditions": ";".join(c_miss),
             "citation_score": cite, "bad_citations": bad_cites,
@@ -219,7 +249,7 @@ def score_dataframe(df, context_pages_by_id=None):
         "condition_recall": _mean("condition_score"),
         "citation_acc": _mean("citation_score"),
         "hit_rate": _mean("retrieval_hit"),
-        "wrong_refusals": int(n_ans["refusal"].sum()),
+        "wrong_refusals": int(n_ans["full_refusal"].sum()),
         "abstention_acc": round(float(n_unans["refusal"].mean()), 4) if len(n_unans) else None,
         "error_counts": "|".join(f"{k}:{v}" for k, v in sorted(counts.items())),
     }
