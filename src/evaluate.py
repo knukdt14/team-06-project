@@ -45,6 +45,7 @@ def run_chain(df, chain, retriever):
         answers.append(answer)
         contexts.append([d.page_content for d in docs])
         print(f"  Q: {row['question'][:40]}... ({latencies[-1]:.1f}s)")
+        print(f"  A: {answer}")
     return answers, contexts, latencies
 
 
