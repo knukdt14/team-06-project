@@ -16,8 +16,8 @@ ARTIFACTS_DIR = PROJECT_DIR / "artifacts"
 PDF_PATH = DATA_DIR / "2025년 원천징수의무자를 위한 연말정산 신고안내.pdf"
 
 # ── 실험 파라미터 (기본값) ──────────────
-CHUNK_SIZE = 1000          # 실험: 500 / 1000 / 1500
-CHUNK_OVERLAP = 200        # 실험: 0 / 100 / 200
+CHUNK_SIZE = 500           # 실험 결과 채택: 1000→500 (Hit@3 0.15→0.39, BERTScore 0.70→0.74). 후보: 300 / 500 / 1000
+CHUNK_OVERLAP = 100        # 실험: 0 / 50 / 100 / 200
 TOP_K = 3                  # 실험: 1 / 3 / 5
 
 # 임베딩: "huggingface" | "gemini" | "openai"
