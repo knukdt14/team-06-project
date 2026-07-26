@@ -34,7 +34,7 @@ VECTORSTORE = "chroma"
 LLM_PROVIDER      = "gemini"
 GEMINI_LLM_MODEL  = "gemini-3.6-flash"
 UPSTAGE_LLM_MODEL = "solar-pro"
-OPENAI_LLM_MODEL  = "gpt-4o-mini"                  
+OPENAI_LLM_MODEL  = "gpt-5.4-mini"                  
 
 # 검색 방식: "similarity" | "mmr"
 SEARCH_TYPE = "similarity"
