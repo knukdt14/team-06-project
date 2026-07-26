@@ -40,7 +40,11 @@ OPENAI_LLM_MODEL  = "gpt-4o-mini"
 SEARCH_TYPE = "similarity"
 
 
-def vectorstore_path(vectorstore: str, embedding: str, chunk_size: int, overlap: int) -> Path:
+
+def vectorstore_path(vectorstore: str, embedding: str, 
+                     chunk_size: int, overlap: int,
+                     embedding_model: str = "") -> Path:
     """실험 설정별로 벡터스토어를 따로 저장해 재사용한다."""
-    name = f"{vectorstore}_{embedding}_cs{chunk_size}_ov{overlap}"
+    model_tag = f"_{embedding_model.split('/')[-1]}" if embedding_model else ""
+    name = f"{vectorstore}_{embedding}{model_tag}_cs{chunk_size}_ov{overlap}"
     return ARTIFACTS_DIR / name
