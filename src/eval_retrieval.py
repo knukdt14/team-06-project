@@ -96,6 +96,8 @@ def main():
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)
     parser.add_argument("--embedding", choices=EMBEDDING_CHOICES, default=config.EMBEDDING_PROVIDER)
+    parser.add_argument("--embedding-model", default=None,
+                        help="모델 ID 직접 지정 (예: intfloat/multilingual-e5-small)")    
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
     args = parser.parse_args()
@@ -104,7 +106,8 @@ def main():
     references = pd.read_csv(config.EVAL_DIR / "references.csv", encoding="utf-8-sig")
     df = questions.merge(references, on="id")
 
-    vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap)
+    vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap,
+                          embedding_model=args.embedding_model)
     retriever = get_retriever(vs, args.search_type, args.top_k, args.chunk_size, args.overlap)
     embedding_model = get_embedding_model_name(args.embedding, config)
     chunk_count = get_chunk_count(vs)

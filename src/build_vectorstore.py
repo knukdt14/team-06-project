@@ -21,36 +21,38 @@ from load_pdf import get_chunks
 load_dotenv()
 
 
-def get_embeddings(provider=config.EMBEDDING_PROVIDER):
-    """임베딩 모델을 생성한다. (실험 파라미터: 임베딩 모델)"""
+
+def get_embeddings(provider=config.EMBEDDING_PROVIDER, model=None):
+    """임베딩 모델을 생성한다. model이 None이면 config 기본값 사용. (실험 파라미터: 임베딩 모델)"""
 
     if provider == "gemini":
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
-        return GoogleGenerativeAIEmbeddings(model=config.GEMINI_EMBEDDING_MODEL)
-    
+        return GoogleGenerativeAIEmbeddings(model=model or config.GEMINI_EMBEDDING_MODEL)
+
     if provider == "openai":
         from langchain_openai import OpenAIEmbeddings
-        return OpenAIEmbeddings(model=config.OPENAI_EMBEDDING_MODEL)
-    
+        return OpenAIEmbeddings(model=model or config.OPENAI_EMBEDDING_MODEL)
+
     if provider == "huggingface":
         from langchain_huggingface import HuggingFaceEmbeddings
-        return HuggingFaceEmbeddings(model_name=config.HF_EMBEDDING_MODEL)
-    
+        return HuggingFaceEmbeddings(model_name=model or config.HF_EMBEDDING_MODEL)
+
     raise ValueError(f"지원하지 않는 임베딩: {provider}")
 
 
 def build_vectorstore(vectorstore=config.VECTORSTORE,
                       embedding=config.EMBEDDING_PROVIDER,
                       chunk_size=config.CHUNK_SIZE,
-                      overlap=config.CHUNK_OVERLAP):
+                      overlap=config.CHUNK_OVERLAP,
+                      embedding_model=None):
     """벡터스토어를 구축하고 저장한다. (실험 파라미터 2: 벡터스토어 종류)"""
 
-    path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap)
-    embeddings = get_embeddings(embedding)
+    path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap, embedding_model or "")
+    embeddings = get_embeddings(embedding, embedding_model)
 
     if path.exists():
         print(f"[build_vectorstore] 이미 존재: {path.name} (재사용하려면 load_vectorstore 사용)")
-        return load_vectorstore(vectorstore, embedding, chunk_size, overlap)
+        return load_vectorstore(vectorstore, embedding, chunk_size, overlap, embedding_model)
 
     chunks = get_chunks(chunk_size, overlap)
 
@@ -71,14 +73,15 @@ def build_vectorstore(vectorstore=config.VECTORSTORE,
 def load_vectorstore(vectorstore=config.VECTORSTORE,
                      embedding=config.EMBEDDING_PROVIDER,
                      chunk_size=config.CHUNK_SIZE,
-                     overlap=config.CHUNK_OVERLAP):
+                     overlap=config.CHUNK_OVERLAP,
+                     embedding_model=None):
     """저장된 벡터스토어를 로드한다. 없으면 새로 구축한다."""
 
-    path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap)
+    path = config.vectorstore_path(vectorstore, embedding, chunk_size, overlap, embedding_model or "")
     if not path.exists():
-        return build_vectorstore(vectorstore, embedding, chunk_size, overlap)
+        return build_vectorstore(vectorstore, embedding, chunk_size, overlap, embedding_model)
 
-    embeddings = get_embeddings(embedding)
+    embeddings = get_embeddings(embedding, embedding_model)
 
     if vectorstore == "chroma":
         from langchain_chroma import Chroma
