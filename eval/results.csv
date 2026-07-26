@@ -3,3 +3,4 @@ baseline,2026-07-26 21:04,gemini,basic,jhgan/ko-sroberta-multitask,chroma,1000,2
 cs500,2026-07-26 21:26,gemini,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7423,7.21,,,,,,,,
 cs500_r2,2026-07-27 00:07,gemini,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7382,6.86,0.8462,0.7692,0.7564,1.0,0.3846,2.0,,E3:8|E6:1|E7:2|WR:2
 cs500_r3,2026-07-27 00:10,gemini,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7432,6.19,0.8205,0.6923,0.7564,1.0,0.3846,2.0,,E3:8|E6:2|E7:2|WR:2
+header_v1,2026-07-27 01:16,gemini,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7376,6.47,0.8975,0.8462,0.9359,1.0,0.4615,1.0,,E3:7|E6:1|E7:1|WR:1
