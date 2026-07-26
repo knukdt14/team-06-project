@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# 프로젝트 환경/캐시 (git에 올리지 않음)
+.kdtenv/
+artifacts/
+*.exe
