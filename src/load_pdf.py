@@ -17,12 +17,54 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import config
 
 
+REPEATED_HEADER_LINES = (
+    "원천징수의무자를 위한",
+    "2025년 연말정산 신고안내",
+)
+PRINTED_PAGE_OFFSET = 18
+
+
+def remove_repeated_header(text, page_index):
+    """본문 페이지 상단의 반복 머리말과 인쇄 페이지번호를 제거한다."""
+
+    lines = text.splitlines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+
+    if (
+        len(lines) >= 2
+        and lines[0].strip() == REPEATED_HEADER_LINES[0]
+        and lines[1].strip() == REPEATED_HEADER_LINES[1]
+    ):
+        del lines[:2]
+
+    physical_page = page_index + 1
+    expected_printed_page = physical_page - PRINTED_PAGE_OFFSET
+    if (
+        expected_printed_page > 0
+        and lines
+        and lines[0].strip() == str(expected_printed_page)
+    ):
+        del lines[0]
+
+    return "\n".join(lines).strip()
+
+
 def load_documents(pdf_path=config.PDF_PATH):
     """PDF를 페이지 단위 Document 리스트로 로드한다."""
 
     loader = PyPDFLoader(str(pdf_path))
     documents = loader.load()
+    cleaned_pages = 0
+    for document in documents:
+        original = document.page_content
+        page_index = int(document.metadata["page"])
+        document.page_content = remove_repeated_header(original, page_index)
+        if document.page_content != original.strip():
+            cleaned_pages += 1
+
     print(f"[load_pdf] {pdf_path.name}: {len(documents)} 페이지 로드 완료")
+    print(f"[load_pdf] 반복 머리말·페이지번호 제거: {cleaned_pages} 페이지")
     return documents
 
 

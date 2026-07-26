@@ -1,3 +1,3 @@
 ﻿run_name,datetime,llm,prompt,embedding,vectorstore,chunk_size,overlap,search_type,top_k,bertscore_f1,avg_latency_sec
-baseline,2026-07-26 21:04,gemini,basic,huggingface,chroma,1000,200,similarity,3,0.6961,6.56
-cs500,2026-07-26 21:26,gemini,basic,huggingface,chroma,500,100,similarity,3,0.7423,7.21
+baseline,2026-07-26 21:04,gemini,basic,jhgan/ko-sroberta-multitask,chroma,1000,200,similarity,3,0.6961,6.56
+cs500,2026-07-26 21:26,gemini,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7423,7.21

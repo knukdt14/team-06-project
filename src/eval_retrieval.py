@@ -30,7 +30,57 @@ def reciprocal_rank(retrieved_pages, gold_page):
     return 0.0
 
 
+def retrieval_error_code(hit):
+    """검색 성공은 빈 값, 정답 페이지 검색 실패는 E3으로 분류한다."""
+    return "" if hit else "E3"
+
+
+def get_embedding_model_name(provider, config):
+    """임베딩 provider에 대응하는 정확한 모델명을 반환한다."""
+    model_names = {
+        "huggingface": config.HF_EMBEDDING_MODEL,
+        "gemini": config.GEMINI_EMBEDDING_MODEL,
+        "openai": config.OPENAI_EMBEDDING_MODEL,
+    }
+    return model_names[provider]
+
+
+def get_chunk_count(vectorstore):
+    """로드된 Chroma 또는 FAISS 벡터스토어의 실제 청크 수를 반환한다."""
+    collection = getattr(vectorstore, "_collection", None)
+    if collection is not None and hasattr(collection, "count"):
+        return int(collection.count())
+
+    index = getattr(vectorstore, "index", None)
+    if index is not None and hasattr(index, "ntotal"):
+        return int(index.ntotal)
+
+    raise ValueError("지원하지 않는 벡터스토어: 청크 수를 확인할 수 없습니다.")
+
+
 import argparse
+import re
+from collections import Counter
+
+
+def split_normalized_sentences(text):
+    """줄바꿈 또는 문장부호 경계로 나누고 공백을 정규화한다."""
+    parts = re.split(r"(?<=[.!?。])\s+|\n+", text)
+    return [
+        re.sub(r"\s+", " ", part).strip()
+        for part in parts
+        if part.strip()
+    ]
+
+
+def count_duplicate_sentences(docs):
+    """top-k 청크 안에서 동일 문장이 추가로 등장한 횟수를 센다."""
+    sentences = []
+    for doc in docs:
+        sentences.extend(split_normalized_sentences(doc.page_content))
+
+    counts = Counter(sentences)
+    return sum(count - 1 for count in counts.values() if count > 1)
 
 
 def main():
@@ -56,28 +106,40 @@ def main():
 
     vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap)
     retriever = get_retriever(vs, args.search_type, args.top_k, args.chunk_size, args.overlap)
+    embedding_model = get_embedding_model_name(args.embedding, config)
+    chunk_count = get_chunk_count(vs)
 
     rows = []
     for _, row in df.iterrows():
         docs = retriever.invoke(row["question"])
         pages = retrieved_physical_pages(docs)
         gold = int(row["page"])
+        hit = page_hit(pages, gold)
+        duplicate_sentence_count = count_duplicate_sentences(docs)
         rows.append({
             "id": row["id"], "question": row["question"],
+            "embedding_model": embedding_model,
+            "chunk_count": chunk_count,
+            "search_type": args.search_type,
+            "top_k": args.top_k,
             "gold_page": gold, "retrieved_pages": pages,
-            "hit": page_hit(pages, gold),
+            "hit": hit,
             "reciprocal_rank": round(reciprocal_rank(pages, gold), 3),
+            "error_code": retrieval_error_code(hit),
+            "duplicate_sentence_count": duplicate_sentence_count,
         })
 
     result = pd.DataFrame(rows)
     hit_at_k = result["hit"].mean()
     mrr = result["reciprocal_rank"].mean()
+    duplicate_sentence_count = int(result["duplicate_sentence_count"].sum())
 
     out = config.EVAL_DIR / f"retrieval_{args.run_name}.csv"
     result.to_csv(out, index=False, encoding="utf-8-sig")
 
     print(f"\n===== 검색 채점: {args.run_name} (top_k={args.top_k}) =====")
     print(f"Hit@{args.top_k}: {hit_at_k:.3f}  |  MRR: {mrr:.3f}")
+    print(f"중복 문장 수(top-{args.top_k} 전체): {duplicate_sentence_count}")
     print(f"문항별 결과 -> {out.name}")
     print("\n[실패 문항 - 정답 페이지 못 찾음]")
     fails = result[~result["hit"]]
