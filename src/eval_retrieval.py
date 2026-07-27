@@ -7,6 +7,11 @@ references.csv의 정답 page를 이용해, 질문마다 정답 페이지가 검
 1-indexed 물리 페이지이므로, chunk page에 +1을 하여 맞춘다.
 """
 
+import math
+
+
+UNANSWERABLE_MARKER = "N/A_UNANSWERABLE"
+
 
 def retrieved_physical_pages(docs):
     """검색된 청크들의 물리 페이지(1-indexed) 목록. page 메타데이터 없으면 -1."""
@@ -21,11 +26,20 @@ def parse_gold_pages(page_field):
     """references.csv의 page 필드를 정답 페이지 목록으로 파싱한다.
 
     복수 정답 지원: "6;182" → [6, 182]  (요약 페이지 + 상세 페이지 모두 정답 인정)
-    단일 정수(220, "220")도 그대로 동작한다.
+    단일 정수(220, "220")도 그대로 동작한다. 답변 불가 문항의 빈 값은 []를 반환한다.
     """
+    if page_field is None:
+        return []
+    if isinstance(page_field, float) and math.isnan(page_field):
+        return []
+
+    text = str(page_field).strip()
+    if not text or text.lower() in {"nan", "none", "<na>"}:
+        return []
+
     if isinstance(page_field, (int, float)):
         return [int(page_field)]
-    return [int(float(p)) for p in str(page_field).split(";") if str(p).strip()]
+    return [int(float(p)) for p in text.split(";") if p.strip()]
 
 
 def _as_golds(gold):
@@ -54,6 +68,29 @@ def reciprocal_rank(retrieved_pages, gold):
 def retrieval_error_code(hit):
     """검색 성공은 빈 값, 정답 페이지 검색 실패는 E3으로 분류한다."""
     return "" if hit else "E3"
+
+
+def score_retrieval_result(retrieved_pages, page_field, answerable=1):
+    """한 문항의 검색 결과를 채점한다.
+
+    answerable=0 문항은 검색 페이지는 보존하되 Hit@k/MRR 집계 대상에서 제외한다.
+    """
+    if str(answerable).strip().lower() in {"0", "false", "no"}:
+        return {
+            "gold_page": [],
+            "hit": UNANSWERABLE_MARKER,
+            "reciprocal_rank": UNANSWERABLE_MARKER,
+            "error_code": "",
+        }
+
+    gold = parse_gold_pages(page_field)
+    hit = page_hit(retrieved_pages, gold)
+    return {
+        "gold_page": gold,
+        "hit": hit,
+        "reciprocal_rank": round(reciprocal_rank(retrieved_pages, gold), 3),
+        "error_code": retrieval_error_code(hit),
+    }
 
 
 def get_embedding_model_name(provider, config):
@@ -158,8 +195,8 @@ def main():
         docs = retriever.invoke(row["question"])
         pages = retrieved_physical_pages(docs)
 
-        gold = parse_gold_pages(row["page"])
-        hit = page_hit(pages, gold)
+        answerable = int(row.get("answerable", 1))
+        score = score_retrieval_result(pages, row["page"], answerable)
         duplicate_sentence_count = count_duplicate_sentences(docs)
         rows.append({
             "id": row["id"], "question": row["question"],
@@ -167,32 +204,41 @@ def main():
             "chunk_count": chunk_count,
             "search_type": args.search_type,
             "top_k": args.top_k,
-            "gold_page": gold, "retrieved_pages": pages,
-            "hit": hit,
-            "reciprocal_rank": round(reciprocal_rank(pages, gold), 3),
-            "error_code": retrieval_error_code(hit),
+            "answerable": answerable,
+            "gold_page": score["gold_page"], "retrieved_pages": pages,
+            "hit": score["hit"],
+            "reciprocal_rank": score["reciprocal_rank"],
+            "error_code": score["error_code"],
             "duplicate_sentence_count": duplicate_sentence_count,
         })
 
     result = pd.DataFrame(rows)
-    hit_at_k = result["hit"].mean()
-    mrr = result["reciprocal_rank"].mean()
+    scored = result[result["answerable"] == 1]
+    hit_at_k = scored["hit"].astype(bool).mean()
+    mrr = pd.to_numeric(scored["reciprocal_rank"]).mean()
     duplicate_sentence_count = int(result["duplicate_sentence_count"].sum())
+    unanswerable_count = int((result["answerable"] == 0).sum())
 
     out = config.EVAL_DIR / f"retrieval_{args.run_name}.csv"
     result.to_csv(out, index=False, encoding="utf-8-sig")
 
     print(f"\n===== 검색 채점: {args.run_name} (top_k={args.top_k}) =====")
     print(f"Hit@{args.top_k}: {hit_at_k:.3f}  |  MRR: {mrr:.3f}")
+    print(f"채점 대상(answerable=1): {len(scored)}문항 | 평가 제외(answerable=0): {unanswerable_count}문항")
     print(f"중복 문장 수(top-{args.top_k} 전체): {duplicate_sentence_count}")
     print(f"문항별 결과 -> {out.name}")
     print("\n[실패 문항 - 정답 페이지 못 찾음]")
-    fails = result[~result["hit"]]
+    fails = scored[scored["hit"] == False]
     if fails.empty:
         print("  (없음)")
     else:
         for _, r in fails.iterrows():
             print(f"  Q{r['id']} (정답 p.{r['gold_page']}): 검색됨 {r['retrieved_pages']} | {r['question'][:30]}")
+
+    if unanswerable_count:
+        print("\n[평가 제외 문항 - answerable=0]")
+        for _, r in result[result["answerable"] == 0].iterrows():
+            print(f"  Q{r['id']}: 검색됨 {r['retrieved_pages']} | {r['question'][:30]}")
 
 
 if __name__ == "__main__":
