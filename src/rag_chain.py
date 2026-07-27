@@ -176,6 +176,43 @@ def dedup_docs_by_page(docs, k):
     return kept
 
 
+REWRITE_PROMPT = ChatPromptTemplate.from_template("""\
+다음 질문을 국세청 연말정산 안내 문서에서 검색하기 좋게 한 문장으로 재작성하세요.
+- 질문이 가리키는 공제·감면 제도의 공식 명칭을 포함하세요.
+- 문서에 쓰이는 세무 용어(세액공제, 소득공제, 한도, 공제율 등)를 보강하세요.
+- 재작성된 질문 한 문장만 출력하세요.
+
+질문: {question}
+""")
+
+
+def rewrite_query(question, llm_provider=config.LLM_PROVIDER):
+    """[담당: 이희영] 질문을 문서 용어로 확장 재작성한다.
+
+    handoff_ensemble.md "Q10 정밀 처방" ①: 질문에 제도명이 없어 임베딩이 정답
+    페이지를 못 잇는 문제(예: Q10 표준세액공제, 정답이 유사도 33위)를
+    특정 문항 하드코딩 없이 일반 규칙(LLM 재작성)으로 해결한다.
+    """
+    llm = get_llm(llm_provider)
+    return (REWRITE_PROMPT | llm | StrOutputParser()).invoke({"question": question}).strip()
+
+
+def rrf_merge(doc_lists, rrf_k=60):
+    """[담당: 이희영] 여러 검색 결과를 RRF(Reciprocal Rank Fusion)로 융합한다.
+
+    점수 척도가 다른 검색 결과들을 점수가 아닌 '순위'로 공정하게 합친다:
+    score(doc) = Σ 1/(rrf_k + rank). 양쪽에서 고루 상위인 문서가 최종 상위가
+    되며, 한쪽 검색이 실패해도 다른 쪽이 보정한다. rrf_k=60은 관례적 표준값.
+    """
+    scores, docs_by_key = {}, {}
+    for docs in doc_lists:
+        for rank, d in enumerate(docs, start=1):
+            key = (d.metadata.get("page"), d.metadata.get("chunk_id"))
+            docs_by_key[key] = d
+            scores[key] = scores.get(key, 0.0) + 1.0 / (rrf_k + rank)
+    return [docs_by_key[k] for k in sorted(scores, key=scores.get, reverse=True)]
+
+
 def format_docs(docs):
     """검색된 청크를 페이지 정보와 함께 하나의 문자열로 합친다."""
     return "\n\n".join(
@@ -186,7 +223,7 @@ def format_docs(docs):
 def build_chain(vectorstore=config.VECTORSTORE,
                 embedding=config.EMBEDDING_PROVIDER,
                 llm_provider=config.LLM_PROVIDER,
-                prompt_name="basic",
+                prompt_name=config.PROMPT_NAME,
                 search_type=config.SEARCH_TYPE,
                 top_k=config.TOP_K,
                 chunk_size=config.CHUNK_SIZE,
@@ -226,7 +263,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RAG 질의응답")
     parser.add_argument("--question", required=True)
     parser.add_argument("--llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER)
-    parser.add_argument("--prompt", choices=list(PROMPTS), default="basic")
+    parser.add_argument("--prompt", choices=list(PROMPTS), default=config.PROMPT_NAME)
     parser.add_argument("--search-type", choices=SEARCH_CHOICES, default=config.SEARCH_TYPE)
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)

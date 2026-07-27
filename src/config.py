@@ -56,6 +56,14 @@ DEDUP_FETCH_K  = 15
 # hybrid 검색: [BM25, Dense(벡터)] 가중치, 합=1 — 실험: 0.2/0.5/0.8 (검색 방식 3파전에서 탈락)
 HYBRID_WEIGHTS = [0.5, 0.5]
 
+# 프롬프트: "basic" | "simple" | "reasoning" (rag_chain.py PROMPTS)
+# ※ 최종 확정(prompt_experiment.md): reasoning이 basic 대비 numeric_acc는
+#   완전히 동일한 오답 패턴(Q6/Q10/Q13 동일)이면서 BERTScore 개선(+0.03)·
+#   응답시간 단축(-25%, 3회 반복 모두 일관). simple은 numeric_acc가 더
+#   높지만(Q6/Q13 개선) BERTScore 하락 + 응답시간 +65% + "문서에 없으면
+#   모른다" 지시 부재로 인한 할루시네이션 리스크 우려로 기각.
+PROMPT_NAME = "reasoning"                                # 최종 채택 (구: basic)
+
 
 def vectorstore_path(vectorstore: str, embedding: str,
                      chunk_size: int, overlap: int,

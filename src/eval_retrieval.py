@@ -149,7 +149,8 @@ def main():
 
     import config
     from build_vectorstore import load_vectorstore
-    from rag_chain import get_retriever, SEARCH_CHOICES, EMBEDDING_CHOICES
+    from rag_chain import (get_retriever, dedup_docs_by_page, rewrite_query, rrf_merge,
+                           SEARCH_CHOICES, EMBEDDING_CHOICES, LLM_CHOICES)
 
     parser = argparse.ArgumentParser(description="검색 품질 채점 (Hit@k, MRR)")
     parser.add_argument("--run-name", required=True)
@@ -170,6 +171,10 @@ def main():
     parser.add_argument("--fetch-k", type=int, default=config.DEDUP_FETCH_K, help="dedup 시 1차 검색 후보 수")
     parser.add_argument("--mmr-lambda", type=float, default=None, help="MMR: 1=관련성만, 0=다양성만")
     parser.add_argument("--bm25-weight", type=float, default=None, help="hybrid: BM25 비중 (벡터=1-값)")
+    parser.add_argument("--rewrite", action="store_true",
+                        help="query rewrite + RRF 앙상블: 원질문+확장질문 이중 검색 (Q10 처방)")
+    parser.add_argument("--rewrite-llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER,
+                        help="질문 재작성에 쓸 LLM (gemini/upstage/openai). 캐시 후 재호출 없음")
     args = parser.parse_args()
 
     questions = pd.read_csv(config.EVAL_DIR / "questions.csv", encoding="utf-8-sig")
@@ -181,12 +186,35 @@ def main():
     
     # dedup=True면 get_retriever가 내부적으로 fetch_k개 검색 → 페이지 dedup → top_k개 반환.
     # dedup=False면 fetch_k는 MMR 자체의 후보 풀로 쓰인다 (get_retriever 참고).
+    # --rewrite 모드는 dedup 래핑 없이 fetch_k개를 그대로 받아
+    # RRF 융합 → 페이지 dedup을 루프에서 수동 적용한다 (이중 dedup 방지).
     retriever = get_retriever(
-        vs, args.search_type, args.top_k, args.chunk_size, args.overlap,
-        dedup=args.dedup, fetch_k=args.fetch_k,
+        vs, args.search_type,
+        args.fetch_k if args.rewrite else args.top_k,
+        args.chunk_size, args.overlap,
+        dedup=args.dedup and not args.rewrite, fetch_k=args.fetch_k,
         lambda_mult=args.mmr_lambda,
         hybrid_weights=[args.bm25_weight, 1 - args.bm25_weight] if args.bm25_weight is not None else None,
     )
+
+    # --rewrite: 확장 질문 캐시 (동일 질문의 LLM 반복 호출 방지, 커밋해서 팀 공유)
+    rewrites = {}
+    if args.rewrite:
+        cache_path = config.EVAL_DIR / "query_rewrites.csv"
+        if cache_path.exists():
+            cached = pd.read_csv(cache_path, encoding="utf-8-sig")
+            rewrites = dict(zip(cached["id"], cached["rewritten"]))
+        missing = [(r["id"], r["question"]) for _, r in df.iterrows() if r["id"] not in rewrites]
+        if missing:
+            print(f"[rewrite] 확장 질문 {len(missing)}개 생성 중 (LLM: {args.rewrite_llm})...")
+            for qid, q in missing:
+                rewrites[qid] = rewrite_query(q, args.rewrite_llm)
+                print(f"  Q{qid}: {rewrites[qid][:60]}")
+            pd.DataFrame(
+                [{"id": qid, "question": q, "rewritten": rewrites[qid], "llm": args.rewrite_llm}
+                 for qid, q in zip(df["id"], df["question"])]
+            ).to_csv(cache_path, index=False, encoding="utf-8-sig")
+            print(f"[rewrite] 캐시 저장 -> {cache_path.name}")
 
     # --embedding-model로 직접 지정한 경우 그 모델 ID를 기록 (§21: 정확한 모델명 기록)
     embedding_model = args.embedding_model or get_embedding_model_name(args.embedding, config)
@@ -194,7 +222,13 @@ def main():
 
     rows = []
     for _, row in df.iterrows():
-        docs = retriever.invoke(row["question"])
+        if args.rewrite:
+            # 원질문 + 확장질문 이중 검색 → RRF 순위 융합 → 페이지 dedup → top_k
+            docs_orig = retriever.invoke(row["question"])
+            docs_rew = retriever.invoke(rewrites[row["id"]])
+            docs = dedup_docs_by_page(rrf_merge([docs_orig, docs_rew]), args.top_k)
+        else:
+            docs = retriever.invoke(row["question"])
         pages = retrieved_physical_pages(docs)
 
         answerable = int(row.get("answerable", 1))
@@ -204,7 +238,7 @@ def main():
             "id": row["id"], "question": row["question"],
             "embedding_model": embedding_model,
             "chunk_count": chunk_count,
-            "search_type": args.search_type,
+            "search_type": f"{args.search_type}+rewrite_rrf" if args.rewrite else args.search_type,
             "top_k": args.top_k,
             "answerable": answerable,
             "gold_page": score["gold_page"], "retrieved_pages": pages,

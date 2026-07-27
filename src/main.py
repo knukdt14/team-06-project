@@ -19,7 +19,7 @@ def main():
     parser = argparse.ArgumentParser(description="연말정산 Q&A 챗봇")
     from rag_chain import LLM_CHOICES
     parser.add_argument("--llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER)
-    parser.add_argument("--prompt", choices=list(PROMPTS), default="basic")
+    parser.add_argument("--prompt", choices=list(PROMPTS), default=config.PROMPT_NAME)
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--dedup", action=argparse.BooleanOptionalAction, default=config.DEDUP,
                         help="페이지 중복 제거 (기본 on — 끄려면 --no-dedup)")
