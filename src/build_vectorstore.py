@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 import config
 from eval_retrieval import get_embedding_model_name
-from load_pdf import get_chunks
+from load_pdf import LOADER_CHOICES, get_chunks
 
 load_dotenv()
 
@@ -27,8 +27,8 @@ FAISS_HNSW_M = 32
 
 
 def get_vectorstore_path(vectorstore, embedding, chunk_size, overlap,
-                         embedding_model=None, faiss_index="flat"):
-    """FAISS 인덱스 타입이 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다.
+                         embedding_model=None, faiss_index="flat", loader=None):
+    """FAISS 인덱스·PDF 로더가 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다.
 
     ※ 버그 수정 (regression_check 실행 중 발견): embedding_model을 명시적으로
     지정하지 않으면 model_tag가 비어, config의 provider 기본 모델이 무엇이든
@@ -43,7 +43,8 @@ def get_vectorstore_path(vectorstore, embedding, chunk_size, overlap,
     """
     resolved_model = embedding_model or get_embedding_model_name(embedding, config)
     path = config.vectorstore_path(
-        vectorstore, embedding, chunk_size, overlap, resolved_model
+        vectorstore, embedding, chunk_size, overlap, resolved_model,
+        loader or config.PDF_LOADER,
     )
     if vectorstore == "faiss" and faiss_index != "flat":
         path = path.with_name(f"{path.name}_{faiss_index}")
@@ -193,7 +194,7 @@ if __name__ == "__main__":
     parser.add_argument("--embedding", choices=["huggingface", "openai", "gemini"], default=config.EMBEDDING_PROVIDER)
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
-    parser.add_argument("--loader", choices=["pypdf", "markdown"], default=config.PDF_LOADER)
+    parser.add_argument("--loader", choices=LOADER_CHOICES, default=config.PDF_LOADER)
     args = parser.parse_args()
 
     vs = build_vectorstore(
