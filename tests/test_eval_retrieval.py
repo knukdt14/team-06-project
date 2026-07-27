@@ -1,6 +1,8 @@
 import sys, pathlib
+import math
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 from eval_retrieval import (
+    UNANSWERABLE_MARKER,
     count_duplicate_sentences,
     get_chunk_count,
     get_embedding_model_name,
@@ -8,6 +10,7 @@ from eval_retrieval import (
     reciprocal_rank,
     retrieval_error_code,
     retrieved_physical_pages,
+    score_retrieval_result,
     split_normalized_sentences,
 )
 
@@ -73,6 +76,11 @@ def test_parse_gold_pages_multi():
 def test_parse_gold_pages_single_int():
     assert parse_gold_pages(220) == [220]
 
+def test_parse_gold_pages_empty_values():
+    assert parse_gold_pages("") == []
+    assert parse_gold_pages(None) == []
+    assert parse_gold_pages(math.nan) == []
+
 def test_page_hit_multi_gold_detail_page():
     # 요약(6)은 못 찾았지만 상세(182)를 찾음 → hit
     assert page_hit([182, 20, 203], [6, 182]) is True
@@ -88,6 +96,26 @@ def test_reciprocal_rank_multi_gold_best():
 def test_retrieval_error_code():
     assert retrieval_error_code(True) == ""
     assert retrieval_error_code(False) == "E3"
+
+
+def test_score_retrieval_result_unanswerable_is_not_scored():
+    score = score_retrieval_result([195, 191, 194], "", answerable=0)
+    assert score == {
+        "gold_page": [],
+        "hit": UNANSWERABLE_MARKER,
+        "reciprocal_rank": UNANSWERABLE_MARKER,
+        "error_code": "",
+    }
+
+
+def test_score_retrieval_result_answerable_keeps_existing_scoring():
+    score = score_retrieval_result([182, 20, 203], "6;182", answerable=1)
+    assert score == {
+        "gold_page": [6, 182],
+        "hit": True,
+        "reciprocal_rank": 1.0,
+        "error_code": "",
+    }
 
 
 def test_embedding_model_name():
