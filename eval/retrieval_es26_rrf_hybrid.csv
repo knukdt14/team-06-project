@@ -1,0 +1,27 @@
+﻿id,question,embedding_model,chunk_count,search_type,top_k,answerable,gold_page,retrieved_pages,hit,reciprocal_rank,error_code,duplicate_sentence_count
+1,월세 살면 연말정산 때 얼마나 돌려받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[220, 221]","[221, 220, 264]",True,1.0,,0
+2,월세 세액공제를 받으려면 어떤 조건을 충족해야 하나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[220, 221]","[221, 264, 220]",True,1.0,,0
+3,8세 이상 자녀가 2명이면 자녀세액공제를 얼마나 받나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 182]","[182, 20, 235]",True,1.0,,1
+4,의료비 세액공제는 어떻게 계산하고 한도는 얼마인가요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 187, 191]","[191, 236, 6]",True,1.0,,0
+5,산후조리원 비용도 의료비 세액공제를 받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 194, 195]","[194, 236, 187]",True,1.0,,0
+6,신용카드 소득공제는 어떻게 계산하나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[5, 150, 151]","[156, 150, 234]",True,0.5,,3
+7,연금저축에 납입하면 세액공제를 얼마나 받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 138, 183]","[183, 235, 138]",True,1.0,,1
+8,부양가족 기본공제는 1명당 얼마이고 소득 요건은 어떻게 되나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[4, 10, 113, 117]","[58, 10, 57]",True,0.5,,0
+9,70세 이상 부모님을 부양하면 추가로 받는 공제가 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[4, 116]","[4, 116, 117]",True,1.0,,1
+10,특별소득공제나 특별세액공제를 아무것도 신청하지 않으면 어떻게 되나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[8, 188]","[344, 188, 8]",True,0.5,,2
+11,올해 혼인신고를 하면 받을 수 있는 세액공제가 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 181]","[181, 367, 39]",True,1.0,,0
+12,주택청약종합저축 납입액은 얼마나 공제받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[5, 36, 140]","[140, 123, 36]",True,1.0,,2
+13,중소기업에 취업한 청년은 소득세를 얼마나 감면받나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 168, 169]","[168, 177, 6]",True,1.0,,0
+14,"자녀의 초·중·고등학교와 대학교 교육비는 각각 얼마까지, 몇 퍼센트 세액공제를 받을 수 있나요?",BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[196, 198]","[236, 198, 203]",True,0.5,,0
+15,일반기부금에는 얼마의 세액공제율이 적용되나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[24, 204, 205]","[237, 204, 205]",True,0.5,,0
+16,보장성보험료와 장애인전용 보장성보험료의 세액공제율과 한도는 얼마인가요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 188, 189]","[189, 187, 6]",True,1.0,,0
+17,기본공제대상자가 장애인이면 추가로 얼마를 공제받나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,[116],"[116, 117, 25]",True,1.0,,0
+18,장기주택저당차입금 이자상환액 소득공제 한도는 얼마인가요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[5, 133, 233]","[234, 136, 133]",True,0.333,,0
+19,배우자가 없고 기본공제대상 자녀가 있는 근로자의 한부모 공제액은 얼마인가요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[4, 113]","[117, 115, 4]",True,0.333,,1
+20,맞벌이 부부의 자녀세액공제는 부부 중 누가 받을 수 있으며 둘 다 받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,[407],"[407, 59, 189]",True,1.0,,0
+21,세대주가 주택자금공제를 받고 있으면 세대원이 월세액 세액공제를 동시에 받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[57, 220]","[220, 56, 57]",True,1.0,,0
+22,실손보험금을 받은 의료비도 전액 의료비 세액공제를 받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[56, 62]","[195, 62, 191]",True,0.5,,1
+23,반려동물 병원비도 의료비 세액공제를 받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,0,[],"[193, 195, 236]",N/A_UNANSWERABLE,N/A_UNANSWERABLE,,0
+24,헬스장에서 사용할 운동복이나 운동화 구입비도 연말정산 공제 대상인가요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,0,[],"[41, 150, 40]",N/A_UNANSWERABLE,N/A_UNANSWERABLE,,8
+25,해외주식 투자손실을 연말정산에서 공제받을 수 있나요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,0,[],"[143, 149, 226]",N/A_UNANSWERABLE,N/A_UNANSWERABLE,,0
+26,8세 이상인 공제대상 자녀가 두 명이라면 자녀세액공제액은 모두 얼마인가요?,BAAI/bge-m3,1274,similarity+rewrite_rrf,3,1,"[6, 182]","[182, 20, 235]",True,1.0,,1
