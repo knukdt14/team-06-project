@@ -22,24 +22,34 @@ TOP_K = 3                  # 실험: 1 / 3 / 5
 
 # 임베딩: "huggingface" | "gemini" | "openai"
 # ※ Gemini 무료 티어는 임베딩 할당량이 작아 대량 문서 임베딩에 부적합 → 로컬 모델 기본
+# ※ 최종 확정(§8, embedding_comparison.md): bge-m3가 ko-sroberta보다 MRR 우세(0.923 vs 0.808)
+#   + LLM 평가로도 재확인(final_model_selection.md) → 기본값 교체
 EMBEDDING_PROVIDER     = "huggingface"
 GEMINI_EMBEDDING_MODEL = "models/gemini-embedding-001"
-HF_EMBEDDING_MODEL     = "jhgan/ko-sroberta-multitask"   # 한국어 특화 비교용
-OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"        
+HF_EMBEDDING_MODEL     = "BAAI/bge-m3"                   # 최종 채택 (구: jhgan/ko-sroberta-multitask)
+OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 
 # 벡터스토어: "chroma" | "faiss"
 VECTORSTORE = "chroma"
 
 # LLM: "gemini" | "upstage" | "openai"
-LLM_PROVIDER      = "gemini"
+# ※ 최종 확정(final_model_selection.md): Upstage가 4회 반복에서 OpenAI 대비 일관 우세
+#   + Gemini 대비 응답시간 약 3배 빠름 → 최고 품질과 가성비가 동시에 수렴
+LLM_PROVIDER      = "upstage"                            # 최종 채택 (구: gemini)
 GEMINI_LLM_MODEL  = "gemini-3.6-flash"
 UPSTAGE_LLM_MODEL = "solar-pro"
-OPENAI_LLM_MODEL  = "gpt-5.4-mini"                  
+OPENAI_LLM_MODEL  = "gpt-5.4-mini"
 
-# 검색 방식: "similarity" | "mmr"
+# 검색 방식: "similarity" | "mmr" | "hybrid"
+# ※ 최종 확정(search_method_comparison.md): similarity+dedup이 MMR·hybrid 도전자 전패시킴
 SEARCH_TYPE = "similarity"
 
-# hybrid 검색: [BM25, Dense(벡터)] 가중치, 합=1 — 실험: 0.2/0.5/0.8
+# 페이지 dedup (이희영, dedup_effect.md/search_method_comparison.md 최종 확정)
+# fetch_k개를 1차 검색 후 서로 다른 페이지 top_k개만 남긴다. Hit@3 0.923→1.000(13/13).
+DEDUP          = True
+DEDUP_FETCH_K  = 15
+
+# hybrid 검색: [BM25, Dense(벡터)] 가중치, 합=1 — 실험: 0.2/0.5/0.8 (검색 방식 3파전에서 탈락)
 HYBRID_WEIGHTS = [0.5, 0.5]
 
 
