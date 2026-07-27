@@ -108,20 +108,30 @@ def get_llm(provider=config.LLM_PROVIDER):
 
 
 def get_retriever(vs, search_type=config.SEARCH_TYPE, top_k=config.TOP_K,
-                  chunk_size=config.CHUNK_SIZE, overlap=config.CHUNK_OVERLAP):
-    """retriever를 생성한다. (실험 파라미터: 유사도 검색 알고리즘, top_k)"""
-    if search_type in ("similarity", "mmr"):
-        return vs.as_retriever(search_type=search_type, search_kwargs={"k": top_k})
+                  chunk_size=config.CHUNK_SIZE, overlap=config.CHUNK_OVERLAP,
+                  fetch_k=None, lambda_mult=None, hybrid_weights=None):
+    """retriever를 생성한다. (실험 파라미터: 검색 알고리즘, top_k, MMR fetch_k/lambda, hybrid 가중치)"""
+    if search_type == "similarity":
+        return vs.as_retriever(search_type="similarity", search_kwargs={"k": top_k})
+
+    if search_type == "mmr":
+        kwargs = {"k": top_k}
+        if fetch_k is not None:
+            kwargs["fetch_k"] = fetch_k          # 1차 후보 수 (기본 20)
+        if lambda_mult is not None:
+            kwargs["lambda_mult"] = lambda_mult  # 1=관련성만, 0=다양성만
+        return vs.as_retriever(search_type="mmr", search_kwargs=kwargs)
 
     if search_type == "hybrid":
         # BM25(키워드) + 벡터 앙상블 검색
         from langchain_community.retrievers import BM25Retriever
-        from langchain.retrievers import EnsembleRetriever
+        from langchain_classic.retrievers import EnsembleRetriever
         chunks = get_chunks(chunk_size, overlap)
         bm25 = BM25Retriever.from_documents(chunks)
         bm25.k = top_k
         vector = vs.as_retriever(search_kwargs={"k": top_k})
-        return EnsembleRetriever(retrievers=[bm25, vector], weights=config.HYBRID_WEIGHTS)
+        return EnsembleRetriever(retrievers=[bm25, vector],
+                                 weights=hybrid_weights or config.HYBRID_WEIGHTS)
 
     raise ValueError(f"지원하지 않는 검색 방식: {search_type}")
 

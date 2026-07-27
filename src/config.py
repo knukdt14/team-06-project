@@ -39,6 +39,8 @@ OPENAI_LLM_MODEL  = "gpt-5.4-mini"
 # 검색 방식: "similarity" | "mmr"
 SEARCH_TYPE = "similarity"
 
+# hybrid 검색: [BM25, Dense(벡터)] 가중치, 합=1 — 실험: 0.2/0.5/0.8
+HYBRID_WEIGHTS = [0.5, 0.5]
 
 
 def vectorstore_path(vectorstore: str, embedding: str, 

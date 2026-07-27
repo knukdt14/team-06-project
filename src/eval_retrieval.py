@@ -125,6 +125,8 @@ def main():
 
     parser.add_argument("--dedup", action="store_true", help="페이지 중복 제거 후 top-k 선별")
     parser.add_argument("--fetch-k", type=int, default=15, help="dedup 시 1차 검색 후보 수")
+    parser.add_argument("--mmr-lambda", type=float, default=None, help="MMR: 1=관련성만, 0=다양성만")
+    parser.add_argument("--bm25-weight", type=float, default=None, help="hybrid: BM25 비중 (벡터=1-값)")
     args = parser.parse_args()
 
     questions = pd.read_csv(config.EVAL_DIR / "questions.csv", encoding="utf-8-sig")
@@ -135,7 +137,13 @@ def main():
                           embedding_model=args.embedding_model)
     
     search_k = args.fetch_k if args.dedup else args.top_k
-    retriever = get_retriever(vs, args.search_type, search_k, args.chunk_size, args.overlap)
+    retriever = get_retriever(
+        vs, args.search_type, search_k, args.chunk_size, args.overlap,
+        fetch_k=args.fetch_k if args.search_type == "mmr" else None,
+        lambda_mult=args.mmr_lambda,
+        hybrid_weights=[args.bm25_weight, 1 - args.bm25_weight] if args.bm25_weight is not None else None,
+    )
+    
     # --embedding-model로 직접 지정한 경우 그 모델 ID를 기록 (§21: 정확한 모델명 기록)
     embedding_model = args.embedding_model or get_embedding_model_name(args.embedding, config)
     chunk_count = get_chunk_count(vs)
@@ -146,7 +154,7 @@ def main():
         if args.dedup:
             docs = dedup_docs_by_page(docs, args.top_k)
         pages = retrieved_physical_pages(docs)
-        
+
         gold = parse_gold_pages(row["page"])
         hit = page_hit(pages, gold)
         duplicate_sentence_count = count_duplicate_sentences(docs)
