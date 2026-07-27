@@ -20,8 +20,11 @@ CHUNK_SIZE = 500           # 실험 결과 채택: 1000→500 (Hit@3 0.15→0.39
 CHUNK_OVERLAP = 100        # 실험: 0 / 50 / 100 / 200
 TOP_K = 3                  # 실험: 1 / 3 / 5
 
-# PDF 로더: "pypdf"(일반 텍스트) | "markdown"(pymupdf4llm, 표·구조 보존)
+# PDF 로더: "pypdf"(일반 텍스트) | "markdown"(pymupdf4llm 전체 변환) | "hybrid"(표 페이지만 마크다운)
 # ※ 실험: 마크다운은 표가 깨지지 않아 계산형·조건나열형 문항의 검색 개선을 노린다.
+#   단 전체 변환(markdown)은 Q18·Q14를 고치는 대신 Q6·Q10을 깨뜨리고 MRR을
+#   0.826→0.638로 떨어뜨렸다(표 아닌 본문까지 서식이 섞임) → 순수익 없음.
+#   hybrid는 표가 검출된 페이지만 교체해 이 부작용을 피한다(load_pdf.load_documents_hybrid).
 PDF_LOADER = "pypdf"
 
 # 임베딩: "huggingface" | "gemini" | "openai"
@@ -70,6 +73,7 @@ def vectorstore_path(vectorstore: str, embedding: str,
                      embedding_model: str = "", loader: str = "pypdf") -> Path:
     """실험 설정별로 벡터스토어를 따로 저장해 재사용한다."""
     model_tag = f"_{embedding_model.split('/')[-1]}" if embedding_model else ""
-    loader_tag = "_md" if loader == "markdown" else ""   # pypdf는 태그 없음 → 기존 경로 유지(하위호환)
+    # pypdf는 태그 없음 → 기존 경로 유지(하위호환). 로더가 다르면 스토어도 분리돼야 한다.
+    loader_tag = {"markdown": "_md", "hybrid": "_hyb"}.get(loader, "")
     name = f"{vectorstore}_{embedding}{model_tag}_cs{chunk_size}_ov{overlap}{loader_tag}"
     return ARTIFACTS_DIR / name

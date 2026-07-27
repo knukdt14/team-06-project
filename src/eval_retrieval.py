@@ -149,6 +149,7 @@ def main():
 
     import config
     from build_vectorstore import load_vectorstore
+    from load_pdf import LOADER_CHOICES
     from rag_chain import (get_retriever, dedup_docs_by_page, rewrite_query, rrf_merge,
                            SEARCH_CHOICES, EMBEDDING_CHOICES, LLM_CHOICES)
 
@@ -162,8 +163,8 @@ def main():
                         help="모델 ID 직접 지정 (예: intfloat/multilingual-e5-small)")    
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
-    parser.add_argument("--loader", choices=["pypdf", "markdown"], default=config.PDF_LOADER,
-                        help="문서 로더: pypdf(일반 텍스트) | markdown(pymupdf4llm, 표 보존)")
+    parser.add_argument("--loader", choices=LOADER_CHOICES, default=config.PDF_LOADER,
+                        help="문서 로더: pypdf(일반 텍스트) | markdown(전체 변환) | hybrid(표 페이지만 마크다운)")
 
     # 기본값이 최종 확정 설정(config.DEDUP=True)을 따른다 — 끄려면 --no-dedup
     parser.add_argument("--dedup", action=argparse.BooleanOptionalAction, default=config.DEDUP,
