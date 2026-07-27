@@ -113,33 +113,31 @@ def get_llm(provider=config.LLM_PROVIDER):
 
 def get_retriever(vs, search_type=config.SEARCH_TYPE, top_k=config.TOP_K,
                   chunk_size=config.CHUNK_SIZE, overlap=config.CHUNK_OVERLAP,
-                  dedup=False, fetch_k=15):
-    """retriever를 생성한다. (실험 파라미터: 유사도 검색 알고리즘, top_k)
+                  fetch_k=None, lambda_mult=None, hybrid_weights=None):
+    """retriever를 생성한다. (실험 파라미터: 검색 알고리즘, top_k, MMR fetch_k/lambda, hybrid 가중치)"""
+    if search_type == "similarity":
+        return vs.as_retriever(search_type="similarity", search_kwargs={"k": top_k})
 
-    dedup=True면 [담당: 이희영] 페이지 단위 중복 제거를 적용한다
-    (handoff_ensemble.md 제안 ①, dedup_effect.md에서 검증: bge-m3 Hit@3 0.923→1.000).
-    fetch_k개를 1차로 넉넉히 검색한 뒤 서로 다른 페이지 top_k개만 남긴다.
-    기존에는 eval_retrieval.py(검색 채점)에만 있었고 evaluate.py(LLM 답변 생성)에는
-    미적용이었던 것을 여기서 공용화해 양쪽에서 동일하게 쓸 수 있게 한다.
-    """
-    search_k = fetch_k if dedup else top_k
+    if search_type == "mmr":
+        kwargs = {"k": top_k}
+        if fetch_k is not None:
+            kwargs["fetch_k"] = fetch_k          # 1차 후보 수 (기본 20)
+        if lambda_mult is not None:
+            kwargs["lambda_mult"] = lambda_mult  # 1=관련성만, 0=다양성만
+        return vs.as_retriever(search_type="mmr", search_kwargs=kwargs)
 
     if search_type in ("similarity", "mmr"):
         base = vs.as_retriever(search_type=search_type, search_kwargs={"k": search_k})
     elif search_type == "hybrid":
         # BM25(키워드) + 벡터 앙상블 검색
         from langchain_community.retrievers import BM25Retriever
-        from langchain.retrievers import EnsembleRetriever
+        from langchain_classic.retrievers import EnsembleRetriever
         chunks = get_chunks(chunk_size, overlap)
         bm25 = BM25Retriever.from_documents(chunks)
-        bm25.k = search_k
-        vector = vs.as_retriever(search_kwargs={"k": search_k})
-        base = EnsembleRetriever(retrievers=[bm25, vector], weights=config.HYBRID_WEIGHTS)
-    else:
-        raise ValueError(f"지원하지 않는 검색 방식: {search_type}")
-
-    if not dedup:
-        return base
+        bm25.k = top_k
+        vector = vs.as_retriever(search_kwargs={"k": top_k})
+        return EnsembleRetriever(retrievers=[bm25, vector],
+                                 weights=hybrid_weights or config.HYBRID_WEIGHTS)
 
     from langchain_core.runnables import RunnableLambda
     return RunnableLambda(lambda question: dedup_docs_by_page(base.invoke(question), top_k))
