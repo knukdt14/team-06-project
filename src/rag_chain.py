@@ -91,7 +91,11 @@ def get_llm(provider=config.LLM_PROVIDER):
     
     if provider == "upstage":
         from langchain_upstage import ChatUpstage
-        return ChatUpstage(model=config.UPSTAGE_LLM_MODEL)
+        # temperature=0 누락 발견: gemini/openai는 있었는데 upstage만 없어서
+        # 완전히 동일한 문맥을 줘도 답변이 매번 달라지는 재현성 문제가 있었다
+        # (llm_bgem3_upstage_dedup 재채점 중 Q6에서 실측: retrieved_pages 동일,
+        # numeric_score 1.0→0.333 — dedup과 무관한 순수 샘플링 변동으로 확인).
+        return ChatUpstage(model=config.UPSTAGE_LLM_MODEL, temperature=0)
     
     if provider == "claude":
         from langchain_anthropic import ChatAnthropic
