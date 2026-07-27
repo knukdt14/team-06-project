@@ -186,7 +186,7 @@ def format_docs(docs):
 def build_chain(vectorstore=config.VECTORSTORE,
                 embedding=config.EMBEDDING_PROVIDER,
                 llm_provider=config.LLM_PROVIDER,
-                prompt_name="basic",
+                prompt_name=config.PROMPT_NAME,
                 search_type=config.SEARCH_TYPE,
                 top_k=config.TOP_K,
                 chunk_size=config.CHUNK_SIZE,
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RAG 질의응답")
     parser.add_argument("--question", required=True)
     parser.add_argument("--llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER)
-    parser.add_argument("--prompt", choices=list(PROMPTS), default="basic")
+    parser.add_argument("--prompt", choices=list(PROMPTS), default=config.PROMPT_NAME)
     parser.add_argument("--search-type", choices=SEARCH_CHOICES, default=config.SEARCH_TYPE)
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)

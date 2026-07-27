@@ -17,6 +17,7 @@ import argparse
 from dotenv import load_dotenv
 
 import config
+from eval_retrieval import get_embedding_model_name
 from load_pdf import get_chunks
 
 load_dotenv()
@@ -27,10 +28,22 @@ FAISS_HNSW_M = 32
 
 def get_vectorstore_path(vectorstore, embedding, chunk_size, overlap,
                          embedding_model=None, faiss_index="flat"):
-    """FAISS 인덱스 타입이 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다."""
+    """FAISS 인덱스 타입이 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다.
 
+    ※ 버그 수정 (regression_check 실행 중 발견): embedding_model을 명시적으로
+    지정하지 않으면 model_tag가 비어, config의 provider 기본 모델이 무엇이든
+    경로가 항상 "chroma_huggingface_..."로 동일했다. config.HF_EMBEDDING_MODEL을
+    ko-sroberta(768차원) → bge-m3(1024차원)로 바꾼 뒤 --embedding-model 없이
+    evaluate.py를 실행하면, bge-m3 인코더로 예전 ko-sroberta 컬렉션을 쿼리하게
+    되어 "Collection expecting embedding with dimension of 768, got 1024"
+    에러가 발생했다. embedding_model이 None이면 실제 사용될 provider 기본
+    모델명을 먼저 resolve해서 경로에 반영하도록 고쳤다 (기존 --embedding-model
+    명시 실행에서 만들어둔 artifacts/chroma_huggingface_bge-m3_cs500_ov100은
+    그대로 재사용됨).
+    """
+    resolved_model = embedding_model or get_embedding_model_name(embedding, config)
     path = config.vectorstore_path(
-        vectorstore, embedding, chunk_size, overlap, embedding_model or ""
+        vectorstore, embedding, chunk_size, overlap, resolved_model
     )
     if vectorstore == "faiss" and faiss_index != "flat":
         path = path.with_name(f"{path.name}_{faiss_index}")
