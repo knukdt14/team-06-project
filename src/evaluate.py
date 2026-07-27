@@ -29,7 +29,7 @@ import pandas as pd
 
 import config
 from eval_retrieval import get_embedding_model_name
-from rag_chain import build_chain, format_docs
+from rag_chain import PROMPTS, build_chain, format_docs
 
 RESULTS_PATH = config.EVAL_DIR / "results.csv"
 
@@ -96,7 +96,7 @@ def main():
     parser.add_argument("--run-name", required=True, help="실험 이름 (results.csv에 기록)")
     from rag_chain import EMBEDDING_CHOICES, LLM_CHOICES, SEARCH_CHOICES
     parser.add_argument("--llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER)
-    parser.add_argument("--prompt", default="basic")
+    parser.add_argument("--prompt", choices=list(PROMPTS), default=config.PROMPT_NAME)
     parser.add_argument("--search-type", choices=SEARCH_CHOICES, default=config.SEARCH_TYPE)
     parser.add_argument("--top-k", type=int, default=config.TOP_K)
     parser.add_argument("--vectorstore", choices=["chroma", "faiss"], default=config.VECTORSTORE)
