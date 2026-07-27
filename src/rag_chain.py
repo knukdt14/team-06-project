@@ -126,6 +126,22 @@ def get_retriever(vs, search_type=config.SEARCH_TYPE, top_k=config.TOP_K,
     raise ValueError(f"지원하지 않는 검색 방식: {search_type}")
 
 
+def dedup_docs_by_page(docs, k):
+    """[담당: 이희영] 같은 페이지 청크는 1개만 남기고, 서로 다른 페이지 k개를 반환한다.
+    (handoff_ensemble.md 제안 ①: 같은 페이지가 top-k를 독점하는 문제 해결)"""
+    seen_pages = set()
+    kept = []
+    for d in docs:
+        page = d.metadata.get("page")
+        if page in seen_pages:
+            continue
+        seen_pages.add(page)
+        kept.append(d)
+        if len(kept) == k:
+            break
+    return kept
+
+
 def format_docs(docs):
     """검색된 청크를 페이지 정보와 함께 하나의 문자열로 합친다."""
     return "\n\n".join(
