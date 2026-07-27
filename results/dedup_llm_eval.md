@@ -87,10 +87,24 @@ Q6은 **완전히 같은 문맥을 주고도 답이 달라진 사례**다. 원�
 ## 6. 다음 할 일
 
 - [x] ~~Upstage temperature 수정 반영 후 llm_bgem3_upstage_dedup 재실행~~ 완료 (10:13, numeric_acc 0.872)
-- [ ] temperature=0에서도 남는 잔여 노이즈 확인 — 필요하면 이 조합만 2~3회 반복해 자체 노이즈 폭 확정
-- [ ] fetch_k 민감도 확인 (`eval_retrieval.py --dedup --fetch-k 6/8/10`, API 불필요)
-- [ ] Gemini Q10 개별 diagnosis (문맥은 정답인데 왜 거절하는지)
-- [ ] Upstage vs OpenAI 동률(0.872) 타이브레이커 — condition_recall(Upstage 0.885 우세), 응답시간 비교
+- [x] ~~fetch_k 민감도 확인~~ → **이희영이 top_k 실험으로 상위 호환 완료** (results/topk_effect.md):
+      k=2에서 이미 검색 포화(Hit@k 1.000), k=8·10은 이득 없이 노이즈만 증가 → fetch_k 자체보다
+      top_k(k=2 vs k=3)가 실질 변수임이 확인됨. 이 항목은 아래 신규 항목으로 대체.
+- [ ] **⭐ k=2 vs k=3 LLM 풀 평가 (이희영 직접 요청)** — bge-m3+dedup 고정,
+      본 문서의 최종 후보 Upstage·OpenAI 두 모델에 대해 top_k만 바꿔 비교:
+      ```bash
+      python src/evaluate.py --run-name k2_upstage --embedding-model BAAI/bge-m3 --llm upstage --dedup --top-k 2
+      python src/evaluate.py --run-name k3_upstage --embedding-model BAAI/bge-m3 --llm upstage --dedup --top-k 3
+      python src/evaluate.py --run-name k2_openai  --embedding-model BAAI/bge-m3 --llm openai  --dedup --top-k 2
+      python src/evaluate.py --run-name k3_openai  --embedding-model BAAI/bge-m3 --llm openai  --dedup --top-k 3
+      ```
+      k=2는 입력 토큰이 k=3 대비 약 2/3라 응답시간·비용까지 함께 확보 가능 — 검색 지표로는
+      k=2·3 무승부이므로 **숫자 정확도·조건 포함률 차이로 최종 k를 결정**(§9 원칙)
+- [ ] 위 결과로 **Upstage vs OpenAI 동률(0.872) 타이브레이커까지 한 번에 해결** —
+      k별 numeric_acc 우세 모델 + 응답시간을 종합해 최종 LLM·k 확정
+- [ ] temperature=0에서도 남는 잔여 노이즈 확인 — 최종 조합 확정 후 2~3회 반복해 노이즈 폭 확정
+- [ ] Gemini Q10 개별 diagnosis (문맥은 정답인데 왜 거절하는지) — 우선순위 낮음(Gemini는 이미 후순위)
+- [ ] (희영 다음 실험) similarity+dedup vs MMR vs hybrid 비교(§10~11) — k=2·3 후보값으로 진행 예정
 
 ## 7. 재현 명령
 
