@@ -13,3 +13,9 @@ llm_bgem3_upstage,2026-07-27 09:39,upstage,basic,BAAI/bge-m3,chroma,500,100,simi
 llm_bgem3_gemini_dedup,2026-07-27 09:52,gemini,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7195,6.58,0.8205,0.7692,0.8077,1.0,1.0,1.0,,E6:2|E7:2|WR:1,True,15.0
 llm_bgem3_openai_dedup,2026-07-27 09:53,openai,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7285,2.04,0.8718,0.7692,0.7692,1.0,1.0,0.0,,E6:3|E7:4,True,15.0
 llm_bgem3_upstage_dedup,2026-07-27 10:13,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7031,2.3,0.8718,0.7692,0.8846,1.0,1.0,0.0,,E6:3|E7:2,True,15.0
+k2_upstage,2026-07-27 10:32,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,2,0.7144,2.05,0.8718,0.7692,0.9231,1.0,1.0,0.0,,E6:3|E7:1,True,15.0
+k3_upstage,2026-07-27 10:32,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7095,2.08,0.8462,0.7692,0.9231,1.0,1.0,0.0,,E6:3|E7:1,True,15.0
+k2_openai,2026-07-27 10:33,openai,basic,BAAI/bge-m3,chroma,500,100,similarity,2,0.7322,1.96,0.7821,0.6154,0.8975,1.0,1.0,0.0,,E6:5|E7:2,True,15.0
+k3_openai,2026-07-27 10:34,openai,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7319,2.0,0.7949,0.6923,0.8077,1.0,1.0,0.0,,E6:4|E7:3,True,15.0
+k3_upstage_r2,2026-07-27 10:40,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.719,2.06,0.8462,0.7692,0.8846,1.0,1.0,0.0,,E6:3|E7:2,True,15.0
+k3_upstage_r3,2026-07-27 10:41,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7181,1.95,0.8462,0.7692,0.9231,1.0,1.0,0.0,,E6:3|E7:1,True,15.0
