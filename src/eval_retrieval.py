@@ -82,6 +82,9 @@ def get_chunk_count(vectorstore):
 import argparse
 import re
 from collections import Counter
+# rag_chain(langchain 의존) import는 main() 안으로 미룬다 — 이 모듈은
+# "LLM/API 불필요"가 설계 의도라, 무거운 의존성 없이도 위 순수 함수들은
+# 단독 테스트 가능해야 한다 (tests/test_eval_retrieval.py).
 
 
 def split_normalized_sentences(text):
@@ -121,6 +124,13 @@ def main():
                         help="모델 ID 직접 지정 (예: intfloat/multilingual-e5-small)")    
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
+
+    # 기본값이 최종 확정 설정(config.DEDUP=True)을 따른다 — 끄려면 --no-dedup
+    parser.add_argument("--dedup", action=argparse.BooleanOptionalAction, default=config.DEDUP,
+                        help="페이지 중복 제거 후 top-k 선별")
+    parser.add_argument("--fetch-k", type=int, default=config.DEDUP_FETCH_K, help="dedup 시 1차 검색 후보 수")
+    parser.add_argument("--mmr-lambda", type=float, default=None, help="MMR: 1=관련성만, 0=다양성만")
+    parser.add_argument("--bm25-weight", type=float, default=None, help="hybrid: BM25 비중 (벡터=1-값)")
     args = parser.parse_args()
 
     questions = pd.read_csv(config.EVAL_DIR / "questions.csv", encoding="utf-8-sig")
@@ -129,7 +139,16 @@ def main():
 
     vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap,
                           embedding_model=args.embedding_model)
-    retriever = get_retriever(vs, args.search_type, args.top_k, args.chunk_size, args.overlap)
+    
+    # dedup=True면 get_retriever가 내부적으로 fetch_k개 검색 → 페이지 dedup → top_k개 반환.
+    # dedup=False면 fetch_k는 MMR 자체의 후보 풀로 쓰인다 (get_retriever 참고).
+    retriever = get_retriever(
+        vs, args.search_type, args.top_k, args.chunk_size, args.overlap,
+        dedup=args.dedup, fetch_k=args.fetch_k,
+        lambda_mult=args.mmr_lambda,
+        hybrid_weights=[args.bm25_weight, 1 - args.bm25_weight] if args.bm25_weight is not None else None,
+    )
+
     # --embedding-model로 직접 지정한 경우 그 모델 ID를 기록 (§21: 정확한 모델명 기록)
     embedding_model = args.embedding_model or get_embedding_model_name(args.embedding, config)
     chunk_count = get_chunk_count(vs)
@@ -138,6 +157,7 @@ def main():
     for _, row in df.iterrows():
         docs = retriever.invoke(row["question"])
         pages = retrieved_physical_pages(docs)
+
         gold = parse_gold_pages(row["page"])
         hit = page_hit(pages, gold)
         duplicate_sentence_count = count_duplicate_sentences(docs)
