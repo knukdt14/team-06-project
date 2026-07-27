@@ -213,6 +213,29 @@ def rrf_merge(doc_lists, rrf_k=60):
     return [docs_by_key[k] for k in sorted(scores, key=scores.get, reverse=True)]
 
 
+_RERANKER_CACHE = {}
+
+
+def rerank_docs(question, docs, top_n=None, model_name=config.RERANKER_MODEL):
+    """[담당: 이희영] cross-encoder로 (질문, 청크) 쌍을 직접 채점해 재정렬한다.
+
+    이슈 #40 제안 ① (가이드라인 §12): 실패 대부분이 "정답이 후보 안에 있는데
+    순위가 4위 밖"인 순위 밀림 유형 → 1차 검색(bi-encoder)은 후보를 넓게 뽑고,
+    cross-encoder가 질문 맥락에서 각 청크를 정독 채점해 순위를 바로잡는다.
+    모델은 최초 1회만 로드해 캐시한다 (재호출 비용 방지).
+    """
+    from sentence_transformers import CrossEncoder
+
+    if model_name not in _RERANKER_CACHE:
+        _RERANKER_CACHE[model_name] = CrossEncoder(model_name)
+    scores = _RERANKER_CACHE[model_name].predict(
+        [(question, d.page_content) for d in docs]
+    )
+    order = sorted(range(len(docs)), key=lambda i: -scores[i])
+    ranked = [docs[i] for i in order]
+    return ranked[:top_n] if top_n else ranked
+
+
 def format_docs(docs):
     """검색된 청크를 페이지 정보와 함께 하나의 문자열로 합친다."""
     return "\n\n".join(
