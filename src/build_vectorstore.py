@@ -27,8 +27,12 @@ FAISS_HNSW_M = 32
 
 
 def get_vectorstore_path(vectorstore, embedding, chunk_size, overlap,
-                         embedding_model=None, faiss_index="flat"):
+                         embedding_model=None, faiss_index="flat", loader="pypdf"):
     """FAISS 인덱스 타입이 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다.
+
+    ※ 핫픽스 (이희영): PR #37에서 load/build_vectorstore가 loader 인자를 넘기도록
+    바뀌었는데 이 함수가 받지 못해 --loader markdown 실행 시 TypeError.
+    loader를 받아 config.vectorstore_path에 전달하도록 수정 (pypdf는 태그 없음 → 기존 경로 유지).
 
     ※ 버그 수정 (regression_check 실행 중 발견): embedding_model을 명시적으로
     지정하지 않으면 model_tag가 비어, config의 provider 기본 모델이 무엇이든
@@ -43,7 +47,8 @@ def get_vectorstore_path(vectorstore, embedding, chunk_size, overlap,
     """
     resolved_model = embedding_model or get_embedding_model_name(embedding, config)
     path = config.vectorstore_path(
-        vectorstore, embedding, chunk_size, overlap, resolved_model
+        vectorstore, embedding, chunk_size, overlap, resolved_model,
+        loader=loader or "pypdf",
     )
     if vectorstore == "faiss" and faiss_index != "flat":
         path = path.with_name(f"{path.name}_{faiss_index}")
