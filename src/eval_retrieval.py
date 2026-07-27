@@ -161,6 +161,8 @@ def main():
                         help="모델 ID 직접 지정 (예: intfloat/multilingual-e5-small)")    
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
+    parser.add_argument("--loader", choices=["pypdf", "markdown"], default=config.PDF_LOADER,
+                        help="문서 로더: pypdf(일반 텍스트) | markdown(pymupdf4llm, 표 보존)")
 
     # 기본값이 최종 확정 설정(config.DEDUP=True)을 따른다 — 끄려면 --no-dedup
     parser.add_argument("--dedup", action=argparse.BooleanOptionalAction, default=config.DEDUP,
@@ -175,7 +177,7 @@ def main():
     df = questions.merge(references, on="id")
 
     vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap,
-                          embedding_model=args.embedding_model)
+                          embedding_model=args.embedding_model, loader=args.loader)
     
     # dedup=True면 get_retriever가 내부적으로 fetch_k개 검색 → 페이지 dedup → top_k개 반환.
     # dedup=False면 fetch_k는 MMR 자체의 후보 풀로 쓰인다 (get_retriever 참고).

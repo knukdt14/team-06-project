@@ -20,6 +20,10 @@ CHUNK_SIZE = 500           # 실험 결과 채택: 1000→500 (Hit@3 0.15→0.39
 CHUNK_OVERLAP = 100        # 실험: 0 / 50 / 100 / 200
 TOP_K = 3                  # 실험: 1 / 3 / 5
 
+# PDF 로더: "pypdf"(일반 텍스트) | "markdown"(pymupdf4llm, 표·구조 보존)
+# ※ 실험: 마크다운은 표가 깨지지 않아 계산형·조건나열형 문항의 검색 개선을 노린다.
+PDF_LOADER = "pypdf"
+
 # 임베딩: "huggingface" | "gemini" | "openai"
 # ※ Gemini 무료 티어는 임베딩 할당량이 작아 대량 문서 임베딩에 부적합 → 로컬 모델 기본
 # ※ 최종 확정(§8, embedding_comparison.md): bge-m3가 ko-sroberta보다 MRR 우세(0.923 vs 0.808)
@@ -53,10 +57,11 @@ DEDUP_FETCH_K  = 15
 HYBRID_WEIGHTS = [0.5, 0.5]
 
 
-def vectorstore_path(vectorstore: str, embedding: str, 
+def vectorstore_path(vectorstore: str, embedding: str,
                      chunk_size: int, overlap: int,
-                     embedding_model: str = "") -> Path:
+                     embedding_model: str = "", loader: str = "pypdf") -> Path:
     """실험 설정별로 벡터스토어를 따로 저장해 재사용한다."""
     model_tag = f"_{embedding_model.split('/')[-1]}" if embedding_model else ""
-    name = f"{vectorstore}_{embedding}{model_tag}_cs{chunk_size}_ov{overlap}"
+    loader_tag = "_md" if loader == "markdown" else ""   # pypdf는 태그 없음 → 기존 경로 유지(하위호환)
+    name = f"{vectorstore}_{embedding}{model_tag}_cs{chunk_size}_ov{overlap}{loader_tag}"
     return ARTIFACTS_DIR / name

@@ -15,6 +15,7 @@ langchain-text-splitters
 
 # 문서 / 벡터스토어
 pypdf
+pymupdf4llm          # 마크다운 로더 (표·구조 보존, config.PDF_LOADER=markdown)
 chromadb
 faiss-cpu
 

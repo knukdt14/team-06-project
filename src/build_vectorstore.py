@@ -26,11 +26,12 @@ FAISS_HNSW_M = 32
 
 
 def get_vectorstore_path(vectorstore, embedding, chunk_size, overlap,
-                         embedding_model=None, faiss_index="flat"):
-    """FAISS 인덱스 타입이 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다."""
+                         embedding_model=None, faiss_index="flat", loader=None):
+    """FAISS 인덱스·PDF 로더가 다른 스토어가 서로 덮어쓰이지 않게 경로를 만든다."""
 
     path = config.vectorstore_path(
-        vectorstore, embedding, chunk_size, overlap, embedding_model or ""
+        vectorstore, embedding, chunk_size, overlap, embedding_model or "",
+        loader or config.PDF_LOADER,
     )
     if vectorstore == "faiss" and faiss_index != "flat":
         path = path.with_name(f"{path.name}_{faiss_index}")
@@ -111,21 +112,23 @@ def build_vectorstore(vectorstore=config.VECTORSTORE,
                       chunk_size=config.CHUNK_SIZE,
                       overlap=config.CHUNK_OVERLAP,
                       embedding_model=None,
-                      faiss_index="flat"):
+                      faiss_index="flat",
+                      loader=None):
     """벡터스토어를 구축하고 저장한다. (실험 파라미터 2: 벡터스토어 종류)"""
 
+    loader = loader or config.PDF_LOADER
     path = get_vectorstore_path(
-        vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+        vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index, loader
     )
     embeddings = get_embeddings(embedding, embedding_model)
 
     if path.exists():
         print(f"[build_vectorstore] 이미 존재: {path.name} (재사용하려면 load_vectorstore 사용)")
         return load_vectorstore(
-            vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+            vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index, loader
         )
 
-    chunks = get_chunks(chunk_size, overlap)
+    chunks = get_chunks(chunk_size, overlap, loader=loader)
 
     if vectorstore == "chroma":
         from langchain_chroma import Chroma
@@ -145,15 +148,17 @@ def load_vectorstore(vectorstore=config.VECTORSTORE,
                      chunk_size=config.CHUNK_SIZE,
                      overlap=config.CHUNK_OVERLAP,
                      embedding_model=None,
-                     faiss_index="flat"):
+                     faiss_index="flat",
+                     loader=None):
     """저장된 벡터스토어를 로드한다. 없으면 새로 구축한다."""
 
+    loader = loader or config.PDF_LOADER
     path = get_vectorstore_path(
-        vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+        vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index, loader
     )
     if not path.exists():
         return build_vectorstore(
-            vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index
+            vectorstore, embedding, chunk_size, overlap, embedding_model, faiss_index, loader
         )
 
     embeddings = get_embeddings(embedding, embedding_model)
@@ -176,6 +181,7 @@ if __name__ == "__main__":
     parser.add_argument("--embedding", choices=["huggingface", "openai", "gemini"], default=config.EMBEDDING_PROVIDER)
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
+    parser.add_argument("--loader", choices=["pypdf", "markdown"], default=config.PDF_LOADER)
     args = parser.parse_args()
 
     vs = build_vectorstore(
@@ -184,6 +190,7 @@ if __name__ == "__main__":
         args.chunk_size,
         args.overlap,
         faiss_index=args.faiss_index,
+        loader=args.loader,
     )
 
     # 검색 동작 확인
