@@ -28,7 +28,7 @@ dedup_effect.md의 예측대로 **검색은 3개 LLM 전부 13/13(E3 소멸)**�
 그러나 numeric_acc는 모델마다 반응이 달랐다 — OpenAI는 개선(+0.09), Gemini는 미미한
 개선(+0.01), **Upstage는 오히려 하락(-0.08)**.
 
-## 3. 원인 규명: Upstage 하락은 dedup 때문이 아니었다
+## 3. 원인 규명 1차: temperature=0 누락 발견
 
 문항별로 pre/post를 대조한 결과, Upstage의 numeric_score가 떨어진 두 문항의 원인이 서로 달랐다.
 
@@ -42,8 +42,24 @@ Q6은 **완전히 같은 문맥을 주고도 답이 달라진 사례**다. 원�
 빠뜨려져 있었다.** 즉 Upstage는 지금까지의 모든 실험에서 답변이 매번 달라질 수 있는
 상태였다. **수정 완료** (`ChatUpstage(..., temperature=0)`).
 
-→ Upstage의 실제 dedup 순효과는 Q6을 제외하면 **거의 중립**(Q13만 -1항목).
-검색 완결성(13/13)은 확보했고 답변 품질 손실은 이전에 알려진 것보다 훨씬 작다.
+## 3-1. 수정 후 재실행 (10:13) — temperature=0으로도 완전한 결정성은 아니었다
+
+| | dedup 전 | dedup 후 (버그 상태, 09:56) | **dedup 후 (수정 후, 10:13)** |
+|---|---|---|---|
+| numeric_acc | 0.9231 | 0.8462 | **0.8718** |
+| condition_recall | 0.9231 | 0.9231 | 0.8846 |
+| Q8 (dedup 목표 문항) | 실패("찾을 수 없음") | - | **✅ 정답** (150만원·100만원 모두 포함, 검색 `[58,10,115]`) |
+
+**목표였던 Q8은 완전히 해결됐다** — dedup의 존재 이유가 실증됨.
+
+수정 후에도 값이 조금 바뀌었는데(0.8462→0.8718), 재확인해보니 Q4·Q6·Q13 **세 문항 모두
+검색된 페이지가 이전 실행과 완전히 동일**했다(dedup 전/후 비교였던 Q13도 이번엔 페이지가
+같았음). 즉 **temperature=0을 줘도 상용 LLM API가 100% 결정론적이진 않다** — 이는
+재현성 실험(repro_cs500.md)에서 Gemini도 동일 설정 반복 시 문항 1~2개가 흔들렸던 것과
+같은 종류의 잔여 노이즈다. Gemini 기준 확보된 노이즈 폭(numeric_acc ±0.026)과 비교하면
+이번 변동(±0.026~0.05)은 그 경계 근처 — dedup의 순수 효과와 완전히 분리하려면 반복
+실행이 필요하지만, **검색 완결성 확보(Q8 해결)라는 핵심 목표는 노이즈와 무관하게
+확실하다.**
 
 ## 4. 이 결과의 의미
 
@@ -61,16 +77,20 @@ Q6은 **완전히 같은 문맥을 주고도 답이 달라진 사례**다. 원�
 
 ## 5. 잠정 결론
 
-- **현재 최선 조합: bge-m3 + dedup(fetch_k=15) + Upstage** — 검색 13/13, numeric_acc 0.846,
-  가장 빠름(2.32s). temperature 수정 후 재실행해 수치를 확정할 것.
-- OpenAI(gpt-5.4-mini)는 dedup과 궁합이 가장 좋음(numeric_acc 0.872, 최고) — 유력한 대안.
+- **현재 최선 조합: bge-m3 + dedup(fetch_k=15) + Upstage** — 검색 13/13(Q8 해결 확인),
+  numeric_acc 0.872, condition_recall 0.885, 가장 빠름(2.30s). temperature 버그 수정 반영된
+  수치로 확정.
+- OpenAI(gpt-5.4-mini)는 dedup과 궁합이 가장 좋음(numeric_acc 0.872, Upstage와 동률) — 유력한 대안.
 - Gemini는 종합 지표상 우위가 없고 응답시간도 가장 느림(6.58s) — 이번 비교에서는 후순위.
+- Upstage·OpenAI 둘 다 numeric_acc 0.872로 동률 → 응답시간·조건포함률 등 다른 기준으로 추가 비교 필요.
 
 ## 6. 다음 할 일
 
-- [ ] Upstage temperature 수정 반영 후 llm_bgem3_upstage_dedup 재실행 (진짜 수치 확정)
+- [x] ~~Upstage temperature 수정 반영 후 llm_bgem3_upstage_dedup 재실행~~ 완료 (10:13, numeric_acc 0.872)
+- [ ] temperature=0에서도 남는 잔여 노이즈 확인 — 필요하면 이 조합만 2~3회 반복해 자체 노이즈 폭 확정
 - [ ] fetch_k 민감도 확인 (`eval_retrieval.py --dedup --fetch-k 6/8/10`, API 불필요)
 - [ ] Gemini Q10 개별 diagnosis (문맥은 정답인데 왜 거절하는지)
+- [ ] Upstage vs OpenAI 동률(0.872) 타이브레이커 — condition_recall(Upstage 0.885 우세), 응답시간 비교
 
 ## 7. 재현 명령
 

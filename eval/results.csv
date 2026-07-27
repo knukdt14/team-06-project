@@ -12,4 +12,4 @@ llm_bgem3_openai,2026-07-27 09:38,openai,basic,BAAI/bge-m3,chroma,500,100,simila
 llm_bgem3_upstage,2026-07-27 09:39,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7062,2.36,0.9231,0.9231,0.9231,1.0,0.9231,0.0,,E3:1|E6:1|E7:1,,
 llm_bgem3_gemini_dedup,2026-07-27 09:52,gemini,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7195,6.58,0.8205,0.7692,0.8077,1.0,1.0,1.0,,E6:2|E7:2|WR:1,True,15.0
 llm_bgem3_openai_dedup,2026-07-27 09:53,openai,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7285,2.04,0.8718,0.7692,0.7692,1.0,1.0,0.0,,E6:3|E7:4,True,15.0
-llm_bgem3_upstage_dedup,2026-07-27 09:56,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7102,2.32,0.8462,0.7692,0.9231,1.0,1.0,0.0,,E6:3|E7:1,True,15.0
+llm_bgem3_upstage_dedup,2026-07-27 10:13,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7031,2.3,0.8718,0.7692,0.8846,1.0,1.0,0.0,,E6:3|E7:2,True,15.0
