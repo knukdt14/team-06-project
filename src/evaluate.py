@@ -105,6 +105,9 @@ def main():
                         help="모델 ID 직접 지정 (예: intfloat/multilingual-e5-small) — 이희영 임베딩 비교용")
     parser.add_argument("--chunk-size", type=int, default=config.CHUNK_SIZE)
     parser.add_argument("--overlap", type=int, default=config.CHUNK_OVERLAP)
+    parser.add_argument("--dedup", action="store_true",
+                        help="페이지 중복 제거 후 top-k 선별 (이희영, dedup_effect.md: bge-m3 Hit@3 0.923→1.000)")
+    parser.add_argument("--fetch-k", type=int, default=15, help="dedup 시 1차 검색 후보 수")
     parser.add_argument("--with-ragas", action="store_true")
     args = parser.parse_args()
 
@@ -115,6 +118,7 @@ def main():
         search_type=args.search_type, top_k=args.top_k,
         chunk_size=args.chunk_size, overlap=args.overlap,
         embedding_model=args.embedding_model,
+        dedup=args.dedup, fetch_k=args.fetch_k,
     )
 
     answers, contexts, latencies, context_pages_by_id = run_chain(df, chain, retriever)
@@ -149,6 +153,7 @@ def main():
         "vectorstore": args.vectorstore,
         "chunk_size": args.chunk_size, "overlap": args.overlap,
         "search_type": args.search_type, "top_k": args.top_k,
+        "dedup": args.dedup, "fetch_k": args.fetch_k if args.dedup else None,
         "bertscore_f1": round(sum(F1) / len(F1), 4),
         "avg_latency_sec": round(sum(latencies) / len(latencies), 2),
         **rule_summary,  # numeric_acc, condition_recall, citation_acc, hit_rate,

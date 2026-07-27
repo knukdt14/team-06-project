@@ -82,7 +82,9 @@ def get_chunk_count(vectorstore):
 import argparse
 import re
 from collections import Counter
-from rag_chain import get_retriever, dedup_docs_by_page, SEARCH_CHOICES, EMBEDDING_CHOICES
+# rag_chain(langchain 의존) import는 main() 안으로 미룬다 — 이 모듈은
+# "LLM/API 불필요"가 설계 의도라, 무거운 의존성 없이도 위 순수 함수들은
+# 단독 테스트 가능해야 한다 (tests/test_eval_retrieval.py).
 
 
 def split_normalized_sentences(text):
@@ -151,8 +153,6 @@ def main():
     rows = []
     for _, row in df.iterrows():
         docs = retriever.invoke(row["question"])
-        if args.dedup:
-            docs = dedup_docs_by_page(docs, args.top_k)
         pages = retrieved_physical_pages(docs)
 
         gold = parse_gold_pages(row["page"])

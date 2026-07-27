@@ -91,7 +91,11 @@ def get_llm(provider=config.LLM_PROVIDER):
     
     if provider == "upstage":
         from langchain_upstage import ChatUpstage
-        return ChatUpstage(model=config.UPSTAGE_LLM_MODEL)
+        # temperature=0 누락 발견: gemini/openai는 있었는데 upstage만 없어서
+        # 완전히 동일한 문맥을 줘도 답변이 매번 달라지는 재현성 문제가 있었다
+        # (llm_bgem3_upstage_dedup 재채점 중 Q6에서 실측: retrieved_pages 동일,
+        # numeric_score 1.0→0.333 — dedup과 무관한 순수 샘플링 변동으로 확인).
+        return ChatUpstage(model=config.UPSTAGE_LLM_MODEL, temperature=0)
     
     if provider == "claude":
         from langchain_anthropic import ChatAnthropic
@@ -122,7 +126,9 @@ def get_retriever(vs, search_type=config.SEARCH_TYPE, top_k=config.TOP_K,
             kwargs["lambda_mult"] = lambda_mult  # 1=관련성만, 0=다양성만
         return vs.as_retriever(search_type="mmr", search_kwargs=kwargs)
 
-    if search_type == "hybrid":
+    if search_type in ("similarity", "mmr"):
+        base = vs.as_retriever(search_type=search_type, search_kwargs={"k": search_k})
+    elif search_type == "hybrid":
         # BM25(키워드) + 벡터 앙상블 검색
         from langchain_community.retrievers import BM25Retriever
         from langchain_classic.retrievers import EnsembleRetriever
@@ -133,7 +139,8 @@ def get_retriever(vs, search_type=config.SEARCH_TYPE, top_k=config.TOP_K,
         return EnsembleRetriever(retrievers=[bm25, vector],
                                  weights=hybrid_weights or config.HYBRID_WEIGHTS)
 
-    raise ValueError(f"지원하지 않는 검색 방식: {search_type}")
+    from langchain_core.runnables import RunnableLambda
+    return RunnableLambda(lambda question: dedup_docs_by_page(base.invoke(question), top_k))
 
 
 def dedup_docs_by_page(docs, k):
@@ -167,15 +174,19 @@ def build_chain(vectorstore=config.VECTORSTORE,
                 top_k=config.TOP_K,
                 chunk_size=config.CHUNK_SIZE,
                 overlap=config.CHUNK_OVERLAP,
-                embedding_model=None):
+                embedding_model=None,
+                dedup=False,
+                fetch_k=15):
     """RAG 체인과 retriever를 생성해 (chain, retriever)로 반환한다.
 
     embedding_model: 모델 ID 직접 지정 (예: intfloat/multilingual-e5-small).
                      None이면 config의 provider 기본 모델 사용.
+    dedup/fetch_k: 페이지 단위 중복 제거 (이희영, dedup_effect.md 참고).
     """
     vs = load_vectorstore(vectorstore, embedding, chunk_size, overlap,
                           embedding_model=embedding_model)
-    retriever = get_retriever(vs, search_type, top_k, chunk_size, overlap)
+    retriever = get_retriever(vs, search_type, top_k, chunk_size, overlap,
+                              dedup=dedup, fetch_k=fetch_k)
     llm = get_llm(llm_provider)
     prompt = PROMPTS[prompt_name]
 
