@@ -7,3 +7,6 @@ header_v1,2026-07-27 01:16,gemini,basic,jhgan/ko-sroberta-multitask,chroma,500,1
 llm_upstage,2026-07-27 08:20,upstage,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7218,1.51,0.8718,0.7692,0.9359,1.0,0.9231,0.0,,E3:1|E6:3|E7:2
 llm_openai,2026-07-27 08:25,openai,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7151,2.14,0.6924,0.4615,0.7436,1.0,0.9231,0.0,,E3:1|E6:7|E7:5
 llm_openai_v2,2026-07-27 08:31,openai,basic,jhgan/ko-sroberta-multitask,chroma,500,100,similarity,3,0.7464,1.52,0.8718,0.7692,0.7948,1.0,0.9231,0.0,,E3:1|E6:3|E7:4
+llm_bgem3_gemini,2026-07-27 09:36,gemini,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7167,6.74,0.8077,0.6923,0.7821,1.0,0.9231,1.0,,E3:1|E6:3|E7:3|WR:1
+llm_bgem3_openai,2026-07-27 09:38,openai,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7244,2.35,0.7821,0.6923,0.8846,1.0,0.9231,0.0,,E3:1|E6:4|E7:2
+llm_bgem3_upstage,2026-07-27 09:39,upstage,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7062,2.36,0.9231,0.9231,0.9231,1.0,0.9231,0.0,,E3:1|E6:1|E7:1
