@@ -202,6 +202,7 @@ def main():
         duplicate_sentence_count = count_duplicate_sentences(docs)
         rows.append({
             "id": row["id"], "question": row["question"],
+            "qtype": row["qtype"],
             "embedding_model": embedding_model,
             "chunk_count": chunk_count,
             "search_type": args.search_type,
@@ -221,6 +222,30 @@ def main():
     duplicate_sentence_count = int(result["duplicate_sentence_count"].sum())
     unanswerable_count = int((result["answerable"] == 0).sum())
 
+    # 질문 유형별 지표를 문항별 결과 CSV에도 함께 기록한다.
+    # answerable=0만 존재하는 "문서밖" 유형은 기존 원칙대로 집계에서 제외한다.
+    qtype_rows = []
+    for qtype in result["qtype"].drop_duplicates():
+        qtype_scored = scored[scored["qtype"] == qtype]
+        if qtype_scored.empty:
+            qtype_rows.append({
+                "qtype": qtype,
+                "qtype_scored_count": 0,
+                "qtype_hit_at_k": UNANSWERABLE_MARKER,
+                "qtype_mrr": UNANSWERABLE_MARKER,
+            })
+            continue
+
+        qtype_rows.append({
+            "qtype": qtype,
+            "qtype_scored_count": len(qtype_scored),
+            "qtype_hit_at_k": round(qtype_scored["hit"].astype(bool).mean(), 3),
+            "qtype_mrr": round(pd.to_numeric(qtype_scored["reciprocal_rank"]).mean(), 3),
+        })
+
+    qtype_summary = pd.DataFrame(qtype_rows)
+    result = result.merge(qtype_summary, on="qtype", how="left", validate="many_to_one")
+
     out = config.EVAL_DIR / f"retrieval_{args.run_name}.csv"
     result.to_csv(out, index=False, encoding="utf-8-sig")
 
@@ -229,6 +254,21 @@ def main():
     print(f"채점 대상(answerable=1): {len(scored)}문항 | 평가 제외(answerable=0): {unanswerable_count}문항")
     print(f"중복 문장 수(top-{args.top_k} 전체): {duplicate_sentence_count}")
     print(f"문항별 결과 -> {out.name}")
+    print("\n[질문 유형별 검색 성능]")
+    print(f"  {'유형':<12} {'문항 수':>6}  {f'Hit@{args.top_k}':>7}  {'MRR':>7}")
+    for _, qtype_row in qtype_summary.iterrows():
+        if qtype_row["qtype_scored_count"] == 0:
+            print(
+                f"  {qtype_row['qtype']:<12} {0:>6}  "
+                f"{'N/A':>7}  {'N/A':>7}"
+            )
+        else:
+            print(
+                f"  {qtype_row['qtype']:<12} "
+                f"{int(qtype_row['qtype_scored_count']):>6}  "
+                f"{float(qtype_row['qtype_hit_at_k']):>7.3f}  "
+                f"{float(qtype_row['qtype_mrr']):>7.3f}"
+            )
     print("\n[실패 문항 - 정답 페이지 못 찾음]")
     fails = scored[scored["hit"] == False]
     if fails.empty:
