@@ -151,7 +151,7 @@ def main():
     from build_vectorstore import load_vectorstore
     from load_pdf import LOADER_CHOICES
     from rag_chain import (get_retriever, dedup_docs_by_page, rewrite_query, rrf_merge,
-                           SEARCH_CHOICES, EMBEDDING_CHOICES, LLM_CHOICES)
+                           rerank_docs, SEARCH_CHOICES, EMBEDDING_CHOICES, LLM_CHOICES)
 
     parser = argparse.ArgumentParser(description="검색 품질 채점 (Hit@k, MRR)")
     parser.add_argument("--run-name", required=True)
@@ -176,6 +176,10 @@ def main():
                         help="query rewrite + RRF 앙상블: 원질문+확장질문 이중 검색 (Q10 처방)")
     parser.add_argument("--rewrite-llm", choices=LLM_CHOICES, default=config.LLM_PROVIDER,
                         help="질문 재작성에 쓸 LLM (gemini/upstage/openai). 캐시 후 재호출 없음")
+    parser.add_argument("--rerank", action="store_true",
+                        help="cross-encoder 재정렬: fetch_k개 후보 → 재채점 → top-k (이슈 #40)")
+    parser.add_argument("--rerank-model", default=config.RERANKER_MODEL,
+                        help="reranker 모델 ID (기본: BAAI/bge-reranker-v2-m3)")
     args = parser.parse_args()
 
     questions = pd.read_csv(config.EVAL_DIR / "questions.csv", encoding="utf-8-sig")
@@ -187,13 +191,14 @@ def main():
     
     # dedup=True면 get_retriever가 내부적으로 fetch_k개 검색 → 페이지 dedup → top_k개 반환.
     # dedup=False면 fetch_k는 MMR 자체의 후보 풀로 쓰인다 (get_retriever 참고).
-    # --rewrite 모드는 dedup 래핑 없이 fetch_k개를 그대로 받아
-    # RRF 융합 → 페이지 dedup을 루프에서 수동 적용한다 (이중 dedup 방지).
+    # --rewrite/--rerank 모드는 dedup 래핑 없이 fetch_k개 후보를 그대로 받아
+    # RRF 융합/재정렬 → 페이지 dedup을 루프에서 수동 적용한다 (이중 dedup 방지).
+    wide_mode = args.rewrite or args.rerank
     retriever = get_retriever(
         vs, args.search_type,
-        args.fetch_k if args.rewrite else args.top_k,
+        args.fetch_k if wide_mode else args.top_k,
         args.chunk_size, args.overlap,
-        dedup=args.dedup and not args.rewrite, fetch_k=args.fetch_k,
+        dedup=args.dedup and not wide_mode, fetch_k=args.fetch_k,
         lambda_mult=args.mmr_lambda,
         hybrid_weights=[args.bm25_weight, 1 - args.bm25_weight] if args.bm25_weight is not None else None,
     )
@@ -221,15 +226,27 @@ def main():
     embedding_model = args.embedding_model or get_embedding_model_name(args.embedding, config)
     chunk_count = get_chunk_count(vs)
 
+    import time
+
     rows = []
     for _, row in df.iterrows():
+        question = row["question"]
         if args.rewrite:
-            # 원질문 + 확장질문 이중 검색 → RRF 순위 융합 → 페이지 dedup → top_k
-            docs_orig = retriever.invoke(row["question"])
-            docs_rew = retriever.invoke(rewrites[row["id"]])
-            docs = dedup_docs_by_page(rrf_merge([docs_orig, docs_rew]), args.top_k)
+            # 원질문 + 확장질문 이중 검색 → RRF 순위 융합
+            docs = rrf_merge([retriever.invoke(question),
+                              retriever.invoke(rewrites[row["id"]])])
         else:
-            docs = retriever.invoke(row["question"])
+            docs = retriever.invoke(question)
+
+        rerank_seconds = None
+        if args.rerank:
+            # cross-encoder가 (질문, 청크) 쌍을 직접 채점해 재정렬 (§12: 시간도 기록)
+            t0 = time.perf_counter()
+            docs = rerank_docs(question, docs, model_name=args.rerank_model)
+            rerank_seconds = round(time.perf_counter() - t0, 3)
+
+        if wide_mode:
+            docs = dedup_docs_by_page(docs, args.top_k)
         pages = retrieved_physical_pages(docs)
 
         answerable = int(row.get("answerable", 1))
@@ -239,8 +256,11 @@ def main():
             "id": row["id"], "question": row["question"],
             "embedding_model": embedding_model,
             "chunk_count": chunk_count,
-            "search_type": f"{args.search_type}+rewrite_rrf" if args.rewrite else args.search_type,
+            "search_type": (args.search_type
+                            + ("+rewrite_rrf" if args.rewrite else "")
+                            + ("+rerank" if args.rerank else "")),
             "top_k": args.top_k,
+            "rerank_seconds": rerank_seconds,
             "answerable": answerable,
             "gold_page": score["gold_page"], "retrieved_pages": pages,
             "hit": score["hit"],
@@ -261,6 +281,9 @@ def main():
 
     print(f"\n===== 검색 채점: {args.run_name} (top_k={args.top_k}) =====")
     print(f"Hit@{args.top_k}: {hit_at_k:.3f}  |  MRR: {mrr:.3f}")
+    if args.rerank:
+        avg_rerank = pd.to_numeric(result["rerank_seconds"]).mean()
+        print(f"reranker: {args.rerank_model} | 평균 재정렬 시간: {avg_rerank:.2f}s/질문")
     print(f"채점 대상(answerable=1): {len(scored)}문항 | 평가 제외(answerable=0): {unanswerable_count}문항")
     print(f"중복 문장 수(top-{args.top_k} 전체): {duplicate_sentence_count}")
     print(f"문항별 결과 -> {out.name}")

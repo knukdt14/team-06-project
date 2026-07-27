@@ -59,6 +59,10 @@ DEDUP_FETCH_K  = 15
 # hybrid 검색: [BM25, Dense(벡터)] 가중치, 합=1 — 실험: 0.2/0.5/0.8 (검색 방식 3파전에서 탈락)
 HYBRID_WEIGHTS = [0.5, 0.5]
 
+# reranker (이슈 #40 제안 ①, 가이드라인 §12): 1차 검색 후보를 cross-encoder로 재정렬.
+# bge-m3와 같은 BAAI 계열의 다국어 reranker, 로컬 실행(API 불필요, 약 2GB).
+RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
+
 # 프롬프트: "basic" | "simple" | "reasoning" (rag_chain.py PROMPTS)
 # ※ 최종 확정(prompt_experiment.md): reasoning이 basic 대비 numeric_acc는
 #   완전히 동일한 오답 패턴(Q6/Q10/Q13 동일)이면서 BERTScore 개선(+0.03)·
