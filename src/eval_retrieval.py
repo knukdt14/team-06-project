@@ -82,7 +82,9 @@ def get_chunk_count(vectorstore):
 import argparse
 import re
 from collections import Counter
-from rag_chain import get_retriever, dedup_docs_by_page, SEARCH_CHOICES, EMBEDDING_CHOICES
+# rag_chain(langchain 의존) import는 main() 안으로 미룬다 — 이 모듈은
+# "LLM/API 불필요"가 설계 의도라, 무거운 의존성 없이도 위 순수 함수들은
+# 단독 테스트 가능해야 한다 (tests/test_eval_retrieval.py).
 
 
 def split_normalized_sentences(text):
@@ -133,9 +135,11 @@ def main():
 
     vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap,
                           embedding_model=args.embedding_model)
-    
-    search_k = args.fetch_k if args.dedup else args.top_k
-    retriever = get_retriever(vs, args.search_type, search_k, args.chunk_size, args.overlap)
+
+    # dedup=True면 get_retriever가 내부적으로 fetch_k개 검색 → 페이지 dedup → top_k개 반환
+    # (evaluate.py와 동일한 로직 공유 — rag_chain.get_retriever 참고)
+    retriever = get_retriever(vs, args.search_type, args.top_k, args.chunk_size, args.overlap,
+                              dedup=args.dedup, fetch_k=args.fetch_k)
     # --embedding-model로 직접 지정한 경우 그 모델 ID를 기록 (§21: 정확한 모델명 기록)
     embedding_model = args.embedding_model or get_embedding_model_name(args.embedding, config)
     chunk_count = get_chunk_count(vs)
@@ -143,8 +147,6 @@ def main():
     rows = []
     for _, row in df.iterrows():
         docs = retriever.invoke(row["question"])
-        if args.dedup:
-            docs = dedup_docs_by_page(docs, args.top_k)
         pages = retrieved_physical_pages(docs)
         
         gold = parse_gold_pages(row["page"])
