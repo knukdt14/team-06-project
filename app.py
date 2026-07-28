@@ -51,6 +51,7 @@ st.markdown("""
     background: #f8fafc; border-left: 4px solid #14b8a6;
     border-radius: 8px; padding: .8rem 1rem; margin: .55rem 0 1rem;
     color: #334155; white-space: pre-wrap; line-height: 1.65;
+    max-height: 280px; overflow-y: auto;
 }
 .stButton>button { border-radius: 10px; font-weight: 600; font-size: 1.06rem; }
 .stTextInput input { font-size: 1.06rem; }
@@ -297,16 +298,23 @@ if go and st.session_state.q.strip():
     chips = "".join(f'<span class="src-chip">{page_label(p)}</span>' for p in pages)   # 인쇄 페이지 번호
     st.markdown(chips, unsafe_allow_html=True)
 
-    with st.expander("🔍 검색 근거 문장 보기", expanded=True):
-        for rank, doc in enumerate(docs, start=1):
-            page = doc.metadata.get("page")
-            label = page_label(page) if isinstance(page, int) else "페이지 정보 없음"
-            st.markdown(f"**검색 {rank}위 · {label}**")
-            evidence_text = normalize_pdf_glyphs(doc.page_content.strip())
-            st.markdown(
-                f'<div class="evidence-card">{html.escape(evidence_text)}</div>',
-                unsafe_allow_html=True,
-            )
+    with st.expander("🔍 검색 근거 문장 보기"):
+        if docs:
+            tab_labels = []
+            for rank, doc in enumerate(docs, start=1):
+                page = doc.metadata.get("page")
+                label = page_label(page) if isinstance(page, int) else "페이지 없음"
+                tab_labels.append(f"{rank}위 · {label}")
+
+            for tab, doc in zip(st.tabs(tab_labels), docs):
+                with tab:
+                    evidence_text = normalize_pdf_glyphs(doc.page_content.strip())
+                    st.markdown(
+                        f'<div class="evidence-card">{html.escape(evidence_text)}</div>',
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.info("표시할 검색 근거가 없습니다.")
 
     with st.expander("📄 실제 PDF 페이지 보기"):
         for p in pages:
