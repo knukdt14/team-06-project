@@ -300,11 +300,15 @@ if go and st.session_state.q.strip():
 
     with st.expander("🔍 검색 근거 문장 보기"):
         if docs:
+            st.caption(
+                "질문과 관련도가 높은 순서로 찾은 문서입니다. "
+                "정답 확률이나 답변 신뢰도 순위는 아닙니다."
+            )
             tab_labels = []
             for rank, doc in enumerate(docs, start=1):
                 page = doc.metadata.get("page")
                 label = page_label(page) if isinstance(page, int) else "페이지 없음"
-                tab_labels.append(f"{rank}위 · {label}")
+                tab_labels.append(f"검색 결과 {rank} · {label}")
 
             for tab, doc in zip(st.tabs(tab_labels), docs):
                 with tab:

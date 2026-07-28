@@ -21,7 +21,7 @@ chromadb
 faiss-cpu
 
 # 웹 데모
-streamlit
+streamlit==1.60.0
 
 # 임베딩 (HuggingFace 한국어 모델 비교용)
 sentence-transformers

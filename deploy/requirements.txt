@@ -1,0 +1,17 @@
+# Streamlit Community Cloud 앱 실행에 필요한 최소 의존성
+streamlit==1.60.0
+python-dotenv
+
+# RAG
+langchain-core
+langchain-community
+langchain-huggingface
+langchain-chroma
+langchain-upstage
+langchain-text-splitters
+
+# PDF / 벡터스토어 / 로컬 임베딩
+pypdf
+pymupdf
+chromadb
+sentence-transformers
