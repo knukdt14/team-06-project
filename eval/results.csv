@@ -30,3 +30,5 @@ evalset26_final4,2026-07-27 14:51,upstage,reasoning,BAAI/bge-m3,chroma,500,100,s
 f66_cs300_dedup_llm,2026-07-28 09:56,upstage,reasoning,BAAI/bge-m3,chroma,300,100,similarity,3,0.7296,1.49,0.8532,0.72,0.3902,1.0,0.8833,0.0,0.6667,E10:2|E3:7|E6:14|E7:45,True,15.0
 f66_cs300_rrf_rerank_llm,2026-07-28 10:08,upstage,reasoning,BAAI/bge-m3,chroma,300,100,similarity+rewrite_rrf+rerank,3,0.7383,10.3,0.8123,0.66,0.3964,0.9924,0.9,0.0,0.5,E10:3|E3:6|E6:17|E7:45|E9:1,True,15.0
 f66_cs300_rerank_only_llm,2026-07-28 10:16,upstage,reasoning,BAAI/bge-m3,chroma,300,100,similarity+rerank,3,0.7412,5.72,0.8123,0.66,0.395,1.0,0.9167,0.0,0.6667,E10:2|E3:5|E6:17|E7:45,True,15.0
+hf_qwen_cs500_basic_13,2026-07-28 23:26,qwen,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.7016,47.44,0.7692,0.6154,0.641,1.0,1.0,0.0,,E6:5|E7:7,True,15.0
+hf_exaone_cs500_basic_13,2026-07-28 23:45,exaone,basic,BAAI/bge-m3,chroma,500,100,similarity,3,0.6966,83.84,0.7436,0.6154,0.8205,1.0,1.0,0.0,,E6:5|E7:4,True,15.0

@@ -42,11 +42,13 @@ from rag_chain import PROMPTS, format_docs, get_llm
 RESULTS_PATH = config.EVAL_DIR / "results.csv"
 
 
-def load_evalset():
+def load_evalset(max_id=None):
     questions = pd.read_csv(config.EVAL_DIR / "questions.csv", encoding="utf-8-sig")
     references = pd.read_csv(config.EVAL_DIR / "references.csv", encoding="utf-8-sig")
     df = questions.merge(references, on="id")
-    print(f"[evaluate] 평가셋 {len(df)}개 로드")
+    if max_id is not None:
+        df = df[df["id"] <= max_id]
+    print(f"[evaluate] 평가셋 {len(df)}개 로드" + (f" (id<={max_id})" if max_id else ""))
     return df
 
 
@@ -183,9 +185,11 @@ def main():
                         help="cross-encoder 재정렬 (final66_search_comparison.md 최종 채택 후보)")
     parser.add_argument("--rerank-model", default=config.RERANKER_MODEL)
     parser.add_argument("--with-ragas", action="store_true")
+    parser.add_argument("--max-id", type=int, default=None,
+                        help="이 id 이하 문항만 평가 (예: --max-id 13 → 기존 13문항 튜닝셋만)")
     args = parser.parse_args()
 
-    df = load_evalset()
+    df = load_evalset(args.max_id)
 
     vs = load_vectorstore(args.vectorstore, args.embedding, args.chunk_size, args.overlap,
                          embedding_model=args.embedding_model)
