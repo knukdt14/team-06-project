@@ -39,13 +39,23 @@ OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 # 벡터스토어: "chroma" | "faiss"
 VECTORSTORE = "chroma"
 
-# LLM: "gemini" | "upstage" | "openai"
+# LLM: "gemini" | "upstage" | "openai" | "claude" | "qwen" | "exaone"
 # ※ 최종 확정(final_model_selection.md): Upstage가 4회 반복에서 OpenAI 대비 일관 우세
 #   + Gemini 대비 응답시간 약 3배 빠름 → 최고 품질과 가성비가 동시에 수렴
 LLM_PROVIDER      = "upstage"                            # 최종 채택 (구: gemini)
 GEMINI_LLM_MODEL  = "gemini-3.6-flash"
 UPSTAGE_LLM_MODEL = "solar-pro"
 OPENAI_LLM_MODEL  = "gpt-5.4-mini"
+
+# HuggingFace 공개 모델(과제 요구사항: 2종 이상, API 키 불필요·로컬 실행)
+# 한국어 instruct 성능이 검증되어 있으면서 CPU로도 돌릴 수 있는 크기로 선정.
+HF_QWEN_LLM_MODEL     = "Qwen/Qwen2.5-1.5B-Instruct"
+HF_EXAONE_LLM_MODEL   = "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
+# EXAONE 저장소가 2026-02에 Transformers v5 전용으로 원격 코드를 갱신해
+# 이 프로젝트가 쓰는 transformers 4.x와 깨짐(RopeParameters ImportError).
+# v5 갱신 이전 커밋으로 고정해 4.x에서도 로드되게 한다.
+HF_EXAONE_REVISION    = "e949c91dec92095908d34e6b560af77dd0c993f8"
+HF_LLM_MAX_NEW_TOKENS = 512
 
 # 검색 방식: "similarity" | "mmr" | "hybrid"
 # ※ 최종 확정(search_method_comparison.md): similarity+dedup이 MMR·hybrid 도전자 전패시킴

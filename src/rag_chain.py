@@ -4,7 +4,7 @@
 벡터스토어 → retriever → 프롬프트 → LLM 으로 이어지는 LCEL 체인.
 
 실험 파라미터:
-- LLM: gemini / openai / upstage / claude / huggingface(공개 모델)
+- LLM: gemini / openai / upstage / claude / qwen / exaone(HuggingFace 공개 모델, 로컬 실행)
 - 프롬프트: basic / simple / reasoning
 - 검색: similarity / mmr / hybrid(BM25+벡터), top_k
 - 벡터스토어·임베딩·chunk_size·overlap: build_vectorstore 설정 재사용
@@ -13,7 +13,8 @@
     python src/rag_chain.py --question "월세 살면 얼마나 돌려받아요?"
     python src/rag_chain.py --question "..." --llm openai --prompt reasoning
     python src/rag_chain.py --question "..." --search-type hybrid --top-k 5
-    python src/rag_chain.py --question "..." --llm huggingface
+    python src/rag_chain.py --question "..." --llm qwen
+    python src/rag_chain.py --question "..." --llm exaone
 """
 import argparse
 import re
@@ -102,13 +103,36 @@ def get_llm(provider=config.LLM_PROVIDER):
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(model=config.CLAUDE_LLM_MODEL, temperature=0)
     
-    if provider == "huggingface":
-        from langchain_huggingface import HuggingFacePipeline
-        return HuggingFacePipeline.from_model_id(
-            model_id=config.HF_LLM_MODEL,
-            task=config.HF_LLM_TASK,
-            pipeline_kwargs={"max_new_tokens": 256},
+    if provider in ("qwen", "exaone"):
+        # HuggingFace 공개 모델, 로컬 실행(API 키 불필요). ChatHuggingFace로 감싸
+        # 각 모델의 tokenizer chat template(instruct 형식)을 그대로 적용한다 —
+        # 그냥 HuggingFacePipeline만 쓰면 프롬프트가 일반 텍스트로 이어붙여져
+        # instruct 모델 성능이 떨어진다.
+        #
+        # ※ HuggingFacePipeline.from_model_id(pipeline_kwargs=...)로 만들면
+        # ChatHuggingFace와 조합했을 때 return_full_text=False가 무시되어
+        # 답변에 채팅 템플릿 전문(system/user 턴 포함)이 그대로 섞여 나온다
+        # (실측 확인). transformers pipeline을 직접 만들어 넘기면 정상 동작한다.
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import pipeline as hf_pipeline
+        from langchain_huggingface import ChatHuggingFace, HuggingFacePipeline
+
+        model_id = config.HF_QWEN_LLM_MODEL if provider == "qwen" else config.HF_EXAONE_LLM_MODEL
+        # EXAONE은 transformers에 아직 네이티브로 등록돼 있지 않아 모델 저장소의
+        # 자체 모델링 코드(trust_remote_code)와 4.x 호환 revision 고정이 필요하다.
+        # Qwen은 네이티브 지원이라 둘 다 불필요.
+        extra_kwargs = {}
+        if provider == "exaone":
+            extra_kwargs = {"trust_remote_code": True, "revision": config.HF_EXAONE_REVISION}
+
+        tokenizer = AutoTokenizer.from_pretrained(model_id, **extra_kwargs)
+        model = AutoModelForCausalLM.from_pretrained(model_id, **extra_kwargs)
+        pipe = hf_pipeline(
+            "text-generation", model=model, tokenizer=tokenizer,
+            max_new_tokens=config.HF_LLM_MAX_NEW_TOKENS, do_sample=False,
+            return_full_text=False,
         )
+        return ChatHuggingFace(llm=HuggingFacePipeline(pipeline=pipe), tokenizer=tokenizer)
     raise ValueError(f"지원하지 않는 LLM: {provider}")
 
 
@@ -308,7 +332,7 @@ def build_chain(vectorstore=config.VECTORSTORE,
     return chain, retriever
 
 
-LLM_CHOICES = ["gemini", "openai", "upstage", "claude", "huggingface"]
+LLM_CHOICES = ["gemini", "openai", "upstage", "claude", "qwen", "exaone"]
 SEARCH_CHOICES = ["similarity", "mmr", "hybrid"]
 EMBEDDING_CHOICES = ["huggingface", "openai", "gemini"]
 
