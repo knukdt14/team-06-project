@@ -16,7 +16,7 @@ ARTIFACTS_DIR = PROJECT_DIR / "artifacts"
 PDF_PATH = DATA_DIR / "2025년 원천징수의무자를 위한 연말정산 신고안내.pdf"
 
 # ── 실험 파라미터 (기본값) ──────────────
-CHUNK_SIZE = 500           # 실험 결과 채택: 1000→500 (Hit@3 0.15→0.39, BERTScore 0.70→0.74). 후보: 300 / 500 / 1000
+CHUNK_SIZE = 300           # 재튜닝: bge-m3+66문항 기준 500→300 (Hit@3 0.783→0.883, 공짜). 구: 1000→500(ko-sroberta+13문항)
 CHUNK_OVERLAP = 100        # 실험: 0 / 50 / 100 / 200
 TOP_K = 3                  # 실험: 1 / 3 / 5
 
