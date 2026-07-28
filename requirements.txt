@@ -16,8 +16,12 @@ langchain-text-splitters
 # 문서 / 벡터스토어
 pypdf
 pymupdf4llm          # 마크다운 로더 (표·구조 보존, config.PDF_LOADER=markdown)
+pymupdf              # Streamlit 데모의 PDF 페이지 이미지 렌더링(fitz)
 chromadb
 faiss-cpu
+
+# 웹 데모
+streamlit
 
 # 임베딩 (HuggingFace 한국어 모델 비교용)
 sentence-transformers
