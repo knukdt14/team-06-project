@@ -189,6 +189,29 @@ def render_pdf_page(page_index):
 
 FRONT_MATTER = 18   # 표지·목차 등 인쇄번호 없는 앞부분 (load_pdf.PRINTED_PAGE_OFFSET와 동일)
 
+# PDF 내장 글꼴의 ①~⑪이 pypdf에서 잘못 해석되는 경우를 화면에서만 복원한다.
+# 검색·임베딩에 사용하는 Document 원문은 수정하지 않는다.
+PDF_GLYPH_DISPLAY_MAP = {
+    "쇮쇱": "①",
+    "쇮쇲": "②",
+    "쇮쇳": "③",
+    "쇮쇴": "④",
+    "쇮쇵": "⑤",
+    "쇮쇶": "⑥",
+    "쇮쇷": "⑦",
+    "쇮쇸": "⑧",
+    "쇮쇹": "⑨",
+    "쇮쇺": "⑩",
+    "쇮쇻": "⑪",
+}
+
+
+def normalize_pdf_glyphs(text):
+    """깨진 PDF 번호 기호를 Streamlit 표시용 문자열에서만 복원한다."""
+    for broken, restored in PDF_GLYPH_DISPLAY_MAP.items():
+        text = text.replace(broken, restored)
+    return text
+
 
 def page_label(page_index):
     """metadata page(0-indexed) → 문서에 실제로 찍힌 인쇄 페이지 번호 라벨."""
@@ -249,7 +272,11 @@ if go and st.session_state.q.strip():
     total_sec = perf_counter() - total_started
 
     st.markdown("#### 💬 답변")
-    st.markdown(f'<div class="answer-card">{html.escape(answer)}</div>', unsafe_allow_html=True)
+    display_answer = normalize_pdf_glyphs(answer)
+    st.markdown(
+        f'<div class="answer-card">{html.escape(display_answer)}</div>',
+        unsafe_allow_html=True,
+    )
 
     st.markdown("#### ⏱️ 응답시간")
     total_col, search_col, generation_col = st.columns(3)
@@ -275,8 +302,9 @@ if go and st.session_state.q.strip():
             page = doc.metadata.get("page")
             label = page_label(page) if isinstance(page, int) else "페이지 정보 없음"
             st.markdown(f"**검색 {rank}위 · {label}**")
+            evidence_text = normalize_pdf_glyphs(doc.page_content.strip())
             st.markdown(
-                f'<div class="evidence-card">{html.escape(doc.page_content.strip())}</div>',
+                f'<div class="evidence-card">{html.escape(evidence_text)}</div>',
                 unsafe_allow_html=True,
             )
 
