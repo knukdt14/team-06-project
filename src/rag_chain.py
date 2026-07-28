@@ -16,6 +16,7 @@
     python src/rag_chain.py --question "..." --llm huggingface
 """
 import argparse
+import re
 
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
@@ -180,10 +181,38 @@ REWRITE_PROMPT = ChatPromptTemplate.from_template("""\
 다음 질문을 국세청 연말정산 안내 문서에서 검색하기 좋게 한 문장으로 재작성하세요.
 - 질문이 가리키는 공제·감면 제도의 공식 명칭을 포함하세요.
 - 문서에 쓰이는 세무 용어(세액공제, 소득공제, 한도, 공제율 등)를 보강하세요.
-- 재작성된 질문 한 문장만 출력하세요.
+- 출력은 재작성된 질문 문장 하나뿐이어야 합니다.
+- 설명, 풀이 과정, 대안 후보, 자기수정, 레이블("최종 출력:" 등), 괄호 안 메모를
+  절대 포함하지 마세요. 그 문장 외에는 한 글자도 출력하지 마세요.
 
 질문: {question}
 """)
+
+
+def _extract_rewritten_question(raw_text):
+    """LLM 재작성 응답에서 재작성된 질문 한 문장만 뽑아낸다.
+
+    ※ 버그 수정: 프롬프트에 "한 문장만 출력"을 지시해도 일부 LLM(Upstage
+    solar-pro 등)이 이를 어기고 자기수정·복수 후보·메타 코멘트("**최종 출력**:",
+    "(※ ... 확인 필요)")를 함께 출력하는 경우가 있었다. 이걸 그대로 .strip()만
+    해서 캐싱하면 그 잡음이 검색 질의 임베딩에 그대로 들어가 리트리버를 오염시킨다
+    (실측: Q61 "직무발명보상금" 재작성이 통째로 캐싱되어 검색 실패로 이어짐).
+    따옴표로 감싼 후보가 있으면 마지막 것(모델이 자기수정 후 마지막에 최종본을
+    제시하는 경향)을 취하고, 없으면 레이블·메모성 줄을 건너뛰고 마지막
+    비어있지 않은 줄을 취한다.
+    """
+    # 짧은 따옴표 키워드(예: 후행 메모의 "핵심 용어: '비과세', '한도'")가 문장으로
+    # 오인식되지 않도록 일정 길이 이상인 따옴표 구간만 후보로 삼는다.
+    quoted = [q.strip() for q in re.findall(r'["“]([^"”]+)["”]', raw_text) if len(q.strip()) > 15]
+    if quoted:
+        return quoted[-1]
+
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    for line in reversed(lines):
+        if line.startswith(("※", "(", "**", "-", "*", "○", "▶")):
+            continue
+        return re.sub(r'^[^:：]{0,20}[:：]\s*', '', line).strip()
+    return raw_text.strip()
 
 
 def rewrite_query(question, llm_provider=config.LLM_PROVIDER):
@@ -194,7 +223,8 @@ def rewrite_query(question, llm_provider=config.LLM_PROVIDER):
     특정 문항 하드코딩 없이 일반 규칙(LLM 재작성)으로 해결한다.
     """
     llm = get_llm(llm_provider)
-    return (REWRITE_PROMPT | llm | StrOutputParser()).invoke({"question": question}).strip()
+    raw = (REWRITE_PROMPT | llm | StrOutputParser()).invoke({"question": question})
+    return _extract_rewritten_question(raw)
 
 
 def rrf_merge(doc_lists, rrf_k=60):
